@@ -4,6 +4,12 @@
     "functions": {
         "api/translate.js": {
             "maxDuration": 60
+        },
+        "api/translate-stream.js": {
+            "maxDuration": 60
         }
-    }
+    },
+    "rewrites": [
+        { "source": "/", "destination": "/public/index.html" }
+    ]
 }
