@@ -173,7 +173,28 @@ export default async function handler(req, res) {
                 jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
             }
 
-            bubbles = JSON.parse(jsonText);
+            try {
+                bubbles = JSON.parse(jsonText);
+            } catch (e) {
+                // Return what we have if the JSON is truncated but contains some valid data
+                if (jsonText.startsWith('[')) {
+                    const lastObjectEnd = jsonText.lastIndexOf('}');
+                    if (lastObjectEnd !== -1) {
+                        try {
+                            const repairedJson = jsonText.substring(0, lastObjectEnd + 1) + ']';
+                            console.log('[Manga Lens API] Attempting to repair truncated JSON...');
+                            bubbles = JSON.parse(repairedJson);
+                            console.log('[Manga Lens API] successfully repaired JSON');
+                        } catch (repairError) {
+                            throw e; // Throw original error if repair fails
+                        }
+                    } else {
+                        throw e;
+                    }
+                } else {
+                    throw e;
+                }
+            }
 
             // Validate structure
             if (!Array.isArray(bubbles)) {
