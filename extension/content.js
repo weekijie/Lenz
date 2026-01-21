@@ -101,7 +101,7 @@
         document.getElementById('manga-lens-loader')?.remove();
     }
 
-    // Main translation function
+    // Main translation function - with streaming support
     async function translatePage(settings, retryCount = 0) {
         if (isTranslating) {
             return { success: false, error: 'Translation in progress' };
@@ -120,44 +120,17 @@
 
             console.log('[Manga Lens] Capture method:', captureResult.type);
 
-            // Step 2: Send to backend for translation
-            // Strip trailing slash from backend URL to avoid double slashes
+            // Step 2: Send to backend for translation (try streaming first)
             const baseUrl = settings.backendUrl.replace(/\/+$/, '');
-            const response = await fetch(`${baseUrl}/api/translate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    image: captureResult.imageData,
-                    context: mangaContext
-                })
-            });
-
-            if (!response.ok) {
-                const errorText = await response.text();
-
-                // Auto-retry on 503 (overloaded) errors
-                if (response.status === 503 && retryCount < 2) {
-                    console.log(`[Manga Lens] Model overloaded, retrying in 5s... (attempt ${retryCount + 1})`);
-                    hideLoading();
-                    isTranslating = false;
-                    await new Promise(r => setTimeout(r, 5000));
-                    return translatePage(settings, retryCount + 1);
-                }
-
-                throw new Error(`API error: ${errorText}`);
-            }
-
-            const result = await response.json();
-            console.log('[Manga Lens] Translation result:', result);
-
-            // Step 3: Render overlays
-            if (result.bubbles && result.bubbles.length > 0) {
-                renderOverlays(result.bubbles, settings.overlayStyle, captureResult);
-                return { success: true, bubbleCount: result.bubbles.length };
-            } else {
-                return { success: true, bubbleCount: 0 };
+            
+            // Try streaming endpoint first for progressive rendering
+            try {
+                const result = await translateWithStreaming(baseUrl, captureResult, settings);
+                return result;
+            } catch (streamError) {
+                console.log('[Manga Lens] Streaming failed, falling back to regular endpoint:', streamError.message);
+                // Fall back to regular endpoint
+                return await translateWithRegularEndpoint(baseUrl, captureResult, settings, retryCount);
             }
 
         } catch (error) {
@@ -166,6 +139,145 @@
         } finally {
             isTranslating = false;
             hideLoading();
+        }
+    }
+
+    // Streaming translation - bubbles appear progressively
+    async function translateWithStreaming(baseUrl, captureResult, settings) {
+        return new Promise((resolve, reject) => {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout
+
+            fetch(`${baseUrl}/api/translate-stream`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image: captureResult.imageData,
+                    context: mangaContext
+                }),
+                signal: controller.signal
+            }).then(response => {
+                if (!response.ok) {
+                    throw new Error(`Stream API error: ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let bubbleCount = 0;
+
+                // Get container for rendering
+                let container;
+                if (captureResult.type === 'tab') {
+                    container = document.body;
+                } else {
+                    container = captureResult.element ? captureResult.element.parentElement : findMangaContainer();
+                    if (container) {
+                        const computedStyle = window.getComputedStyle(container);
+                        if (computedStyle.position === 'static') {
+                            container.style.position = 'relative';
+                        }
+                    }
+                }
+
+                function processStream() {
+                    reader.read().then(({ done, value }) => {
+                        if (done) {
+                            clearTimeout(timeoutId);
+                            console.log('[Manga Lens] Stream complete:', bubbleCount, 'bubbles');
+                            resolve({ success: true, bubbleCount });
+                            return;
+                        }
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || '';
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    
+                                    if (data.type === 'bubble') {
+                                        // Render bubble immediately
+                                        const overlay = createOverlay(
+                                            data.bubble, 
+                                            container, 
+                                            settings.overlayStyle, 
+                                            bubbleCount, 
+                                            captureResult
+                                        );
+                                        container.appendChild(overlay);
+                                        translationOverlays.push(overlay);
+                                        bubbleCount++;
+                                        console.log(`[Manga Lens] Rendered bubble ${bubbleCount}`);
+                                    } else if (data.type === 'done') {
+                                        clearTimeout(timeoutId);
+                                        resolve({ success: true, bubbleCount: data.count });
+                                        return;
+                                    } else if (data.type === 'error') {
+                                        clearTimeout(timeoutId);
+                                        reject(new Error(data.message));
+                                        return;
+                                    }
+                                } catch (e) {
+                                    console.warn('[Manga Lens] Failed to parse SSE:', line);
+                                }
+                            }
+                        }
+
+                        processStream();
+                    }).catch(err => {
+                        clearTimeout(timeoutId);
+                        reject(err);
+                    });
+                }
+
+                processStream();
+            }).catch(err => {
+                clearTimeout(timeoutId);
+                reject(err);
+            });
+        });
+    }
+
+    // Regular (non-streaming) translation
+    async function translateWithRegularEndpoint(baseUrl, captureResult, settings, retryCount) {
+        const response = await fetch(`${baseUrl}/api/translate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                image: captureResult.imageData,
+                context: mangaContext
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+
+            // Auto-retry on 503 (overloaded) errors
+            if (response.status === 503 && retryCount < 2) {
+                console.log(`[Manga Lens] Model overloaded, retrying in 5s... (attempt ${retryCount + 1})`);
+                hideLoading();
+                isTranslating = false;
+                await new Promise(r => setTimeout(r, 5000));
+                return translatePage(settings, retryCount + 1);
+            }
+
+            throw new Error(`API error: ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('[Manga Lens] Translation result:', result);
+
+        // Step 3: Render overlays
+        if (result.bubbles && result.bubbles.length > 0) {
+            renderOverlays(result.bubbles, settings.overlayStyle, captureResult);
+            return { success: true, bubbleCount: result.bubbles.length };
+        } else {
+            return { success: true, bubbleCount: 0 };
         }
     }
 
@@ -235,7 +347,7 @@
     }
 
     // Resize image for faster API processing
-    function resizeImageForAPI(dataUrl, maxWidth = 1200) {
+    function resizeImageForAPI(dataUrl, maxWidth = 800) {
         return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
@@ -253,7 +365,7 @@
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-                const resized = canvas.toDataURL('image/jpeg', 0.8);
+                const resized = canvas.toDataURL('image/jpeg', 0.6);
                 console.log(`[Manga Lens] Resized image: ${img.width}x${img.height} → ${canvas.width}x${canvas.height}`);
                 resolve(resized);
             };

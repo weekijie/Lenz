@@ -3,61 +3,21 @@
 
 import { GoogleGenAI } from '@google/genai';
 
-// Translation prompt template
-const buildPrompt = (context) => `You are a professional manga translator specializing in Japanese to English translation.
+// Translation prompt template - optimized for speed
+const buildPrompt = (context) => `You are a manga translator. Analyze this manga page and translate all speech bubbles.
 
-**MANGA CONTEXT:**
-${context?.title ? `- Title: ${context.title}` : ''}
-${context?.synopsis ? `- Synopsis: ${context.synopsis}` : ''}
-${context?.tags?.length ? `- Genre/Tags: ${context.tags.join(', ')}` : ''}
+${context?.title ? `Manga: ${context.title}` : ''}
 
-**YOUR TASK:**
-Analyze the attached manga page image carefully. For each speech bubble or text box you find:
+For each bubble, return:
+- bbox: [x%, y%, width%, height%] position relative to image
+- japanese: original text
+- english: natural English translation
+- emotion: neutral|shouting|whispering|excited|sad|angry|scared
+- speaker: character name or "unknown"
+- culturalNote: brief explanation if needed, else null
 
-1. **LOCATE**: Identify the bounding box as percentage coordinates [x%, y%, width%, height%] relative to the image dimensions. x,y is the top-left corner.
-
-2. **READ**: Extract the original Japanese text inside the bubble.
-
-3. **TRANSLATE**: Provide a natural, contextual English translation that:
-   - Matches the character's personality and the scene's mood
-   - Uses appropriate tone (casual, formal, dramatic, etc.)
-   - Preserves any humor or wordplay when possible
-
-4. **DETECT EMOTION**: Analyze the speaker's emotion by looking at:
-   - Facial expression in the panel
-   - Speech bubble style (jagged = shouting, wavy = scared, cloud = thought)
-   - Art effects (speed lines, sweat drops, anger symbols)
-   - Choose from: neutral, shouting, whispering, excited, sad, angry, scared
-
-5. **IDENTIFY SPEAKER**: If you can determine who is speaking based on:
-   - The bubble's tail pointing to a character
-   - Visual context in the panel
-   - Provide the character name or "unknown"
-
-6. **CULTURAL NOTE**: If the text contains any of the following, add an explanation:
-   - Japanese idioms that don't translate directly
-   - Puns or wordplay (explain the original joke)
-   - Cultural references a Western reader might miss
-   - Honorifics usage that affects meaning
-
-**IMPORTANT RULES:**
-- Return ONLY valid JSON, no markdown code blocks
-- If no speech bubbles are found, return an empty array: []
-- Bounding box values must be percentages (0-100)
-- Be accurate with bubble positions - they will be used for overlays
-
-**OUTPUT FORMAT:**
-Return a JSON array with this exact structure:
-[
-  {
-    "bbox": [x, y, width, height],
-    "japanese": "original Japanese text",
-    "english": "translated English text",
-    "emotion": "detected emotion",
-    "speaker": "character name or unknown",
-    "culturalNote": "explanation if applicable, or null"
-  }
-]`;
+Return ONLY a JSON array, no markdown:
+[{"bbox":[x,y,w,h],"japanese":"...","english":"...","emotion":"...","speaker":"...","culturalNote":null}]`;
 
 import Cors from 'cors';
 
@@ -137,7 +97,7 @@ export default async function handler(req, res) {
         // Call Gemini API with multimodal input
         // Using the @google/genai SDK v1.x pattern
         const response = await genAI.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: [
                 {
                     role: 'user',
