@@ -158,9 +158,25 @@ export default async function handler(req, res) {
             }
         });
 
-        const text = response.text;
+        // Extract text from response - handle different SDK response structures
+        let text;
+        try {
+            // Try different response structures (SDK versions vary)
+            text = response.text
+                || response?.candidates?.[0]?.content?.parts?.[0]?.text
+                || response?.response?.text?.()
+                || (typeof response?.text === 'function' ? response.text() : null);
 
-        console.log('[Manga Lens API] Raw response:', text?.substring(0, 200));
+            // If still undefined, log the full response structure for debugging
+            if (text === undefined || text === null) {
+                console.log('[Manga Lens API] Response structure:', JSON.stringify(response, null, 2).substring(0, 500));
+            }
+        } catch (extractError) {
+            console.error('[Manga Lens API] Error extracting text:', extractError);
+            text = null;
+        }
+
+        console.log('[Manga Lens API] Raw response:', text?.substring?.(0, 200));
 
         // Parse the JSON response
         let bubbles;
