@@ -101,6 +101,72 @@
         document.getElementById('manga-lens-loader')?.remove();
     }
 
+    // Show error toast notification
+    function showErrorToast(type, title, message, autoClose = true) {
+        // Remove any existing toast
+        document.querySelector('.manga-lens-error-toast')?.remove();
+        
+        const toast = document.createElement('div');
+        toast.className = `manga-lens-error-toast ${type}`;
+        
+        const icon = type === 'warning' ? '&#9888;' : '&#10060;';
+        
+        toast.innerHTML = `
+            <button class="manga-lens-error-close">&times;</button>
+            <div class="manga-lens-error-header">
+                <span class="manga-lens-error-icon">${icon}</span>
+                <span class="manga-lens-error-title">${title}</span>
+            </div>
+            <div class="manga-lens-error-message">${message}</div>
+        `;
+        
+        document.body.appendChild(toast);
+        
+        // Close button handler
+        toast.querySelector('.manga-lens-error-close').addEventListener('click', () => {
+            toast.remove();
+        });
+        
+        // Auto-close after 8 seconds
+        if (autoClose) {
+            setTimeout(() => {
+                toast.remove();
+            }, 8000);
+        }
+    }
+
+    // Handle API errors with visual feedback
+    function handleApiError(statusCode, errorData) {
+        const code = errorData?.code || '';
+        const message = errorData?.message || errorData?.error || 'An error occurred';
+        
+        if (statusCode === 429 || code === 'RATE_LIMIT') {
+            showErrorToast(
+                'warning',
+                'Rate Limit Exceeded',
+                `${message}<br><br><strong>Tip:</strong> Wait about a minute before trying again.`
+            );
+        } else if (statusCode === 503 || code === 'SERVICE_UNAVAILABLE') {
+            showErrorToast(
+                'warning',
+                'Service Temporarily Unavailable',
+                `${message}<br><br><strong>Tip:</strong> The API is experiencing high load. Try again in a few seconds.`
+            );
+        } else if (statusCode === 404 || code === 'NOT_FOUND') {
+            showErrorToast(
+                'error',
+                'Service Not Found',
+                message
+            );
+        } else {
+            showErrorToast(
+                'error',
+                'Translation Failed',
+                message
+            );
+        }
+    }
+
     // Main translation function - with streaming support
     async function translatePage(settings, retryCount = 0) {
         if (isTranslating) {
@@ -156,9 +222,14 @@
                     context: mangaContext
                 }),
                 signal: controller.signal
-            }).then(response => {
+            }).then(async response => {
                 if (!response.ok) {
-                    throw new Error(`Stream API error: ${response.status}`);
+                    clearTimeout(timeoutId);
+                    // Parse error response and handle it
+                    const errorData = await response.json().catch(() => ({}));
+                    handleApiError(response.status, errorData);
+                    reject(new Error(`Stream API error: ${response.status}`));
+                    return;
                 }
 
                 const reader = response.body.getReader();
@@ -217,6 +288,7 @@
                                         return;
                                     } else if (data.type === 'error') {
                                         clearTimeout(timeoutId);
+                                        handleApiError(null, data);
                                         reject(new Error(data.message));
                                         return;
                                     }
@@ -255,7 +327,7 @@
         });
 
         if (!response.ok) {
-            const errorText = await response.text();
+            const errorData = await response.json().catch(() => ({}));
 
             // Auto-retry on 503 (overloaded) errors
             if (response.status === 503 && retryCount < 2) {
@@ -266,7 +338,9 @@
                 return translatePage(settings, retryCount + 1);
             }
 
-            throw new Error(`API error: ${errorText}`);
+            // Show error toast for all other errors
+            handleApiError(response.status, errorData);
+            throw new Error(`API error: ${response.status}`);
         }
 
         const result = await response.json();

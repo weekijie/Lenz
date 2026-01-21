@@ -21,12 +21,28 @@ Return ONLY a JSON array, no markdown:
 
 import Cors from 'cors';
 
+// Allowed origins for CORS
+const allowedOrigins = [
+    'https://lenz-iota.vercel.app',
+    'https://lenz-bgukzdj3u-weekijies-projects.vercel.app',
+    'https://comic-walker.com'
+];
+
 // Initialize the cors middleware
 const cors = Cors({
     methods: ['GET', 'POST', 'OPTIONS'],
-    origin: '*', // Allow all origins
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-    credentials: false // Important: must be false when origin is "*"
+    credentials: true
 });
 
 // Helper method to wait for a middleware to execute before continuing
@@ -243,8 +259,41 @@ export default async function handler(req, res) {
     } catch (error) {
         console.error('[Manga Lens API] Error:', error);
 
+        // Handle specific Gemini API errors
+        const errorMessage = error.message || 'Translation failed';
+        const statusCode = error.status || error.statusCode || 500;
+        
+        // Check for rate limit errors (429)
+        if (statusCode === 429 || errorMessage.includes('429') || errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('quota')) {
+            return res.status(429).json({
+                error: 'Rate limit exceeded',
+                code: 'RATE_LIMIT',
+                message: 'Too many requests. This demo uses Gemini API free tier with limited quota. Please wait a moment and try again.',
+                retryAfter: 60
+            });
+        }
+        
+        // Check for service unavailable (503)
+        if (statusCode === 503 || errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('unavailable')) {
+            return res.status(503).json({
+                error: 'Service unavailable',
+                code: 'SERVICE_UNAVAILABLE',
+                message: 'Gemini API is temporarily unavailable or overloaded. Please try again in a few seconds.'
+            });
+        }
+        
+        // Check for not found (404)
+        if (statusCode === 404 || errorMessage.includes('404') || errorMessage.toLowerCase().includes('not found')) {
+            return res.status(404).json({
+                error: 'Not found',
+                code: 'NOT_FOUND',
+                message: 'The requested model or endpoint was not found. Please try again later.'
+            });
+        }
+
         res.status(500).json({
-            error: error.message || 'Translation failed',
+            error: errorMessage,
+            code: 'INTERNAL_ERROR',
             details: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }

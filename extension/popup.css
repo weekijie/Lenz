@@ -361,3 +361,43 @@ body {
 .footer a:hover {
   text-decoration: underline;
 }
+
+/* Disclaimer Banner */
+.disclaimer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: var(--border-radius);
+  margin-bottom: 8px;
+}
+
+.disclaimer-icon {
+  color: var(--warning);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.disclaimer-text {
+  font-size: 11px;
+  color: var(--warning);
+  line-height: 1.4;
+}
+
+/* Status card warning state */
+.status-card.warning {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.status-card.warning .status-indicator {
+  background: var(--warning);
+  box-shadow: 0 0 8px var(--warning);
+}
+
+.status-card.error {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+}

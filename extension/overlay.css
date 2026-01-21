@@ -210,3 +210,92 @@
         transform: rotate(360deg);
     }
 }
+
+/* Error Toast Notification */
+.manga-lens-error-toast {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10003;
+    max-width: 400px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #1a1a2e, #252540);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    animation: slideDown 0.3s ease;
+}
+
+.manga-lens-error-toast.warning {
+    border: 1px solid rgba(245, 158, 11, 0.5);
+}
+
+.manga-lens-error-toast.error {
+    border: 1px solid rgba(239, 68, 68, 0.5);
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+.manga-lens-error-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.manga-lens-error-icon {
+    font-size: 18px;
+}
+
+.manga-lens-error-toast.warning .manga-lens-error-icon {
+    color: #f59e0b;
+}
+
+.manga-lens-error-toast.error .manga-lens-error-icon {
+    color: #ef4444;
+}
+
+.manga-lens-error-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.manga-lens-error-message {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #a0a0b0;
+}
+
+.manga-lens-error-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50%;
+    color: #a0a0b0;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.manga-lens-error-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}

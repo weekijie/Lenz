@@ -272,6 +272,32 @@
             border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
+        .status.warning {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: #fbbf24;
+        }
+
+        .disclaimer {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: #fbbf24;
+        }
+
+        .disclaimer-icon {
+            margin-right: 8px;
+        }
+
+        .error-details {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #a0a0a0;
+        }
+
         .spinner {
             display: inline-block;
             width: 20px;
@@ -358,6 +384,11 @@
         </header>
 
         <div class="demo-area">
+            <div class="disclaimer">
+                <span class="disclaimer-icon">&#9888;</span>
+                <strong>Free Tier Notice:</strong> This demo uses Gemini API's free tier with limited quota. You may experience rate limits during high traffic. For unlimited usage, consider self-hosting with your own API key.
+            </div>
+
             <div class="upload-zone" id="uploadZone">
                 <div class="upload-icon">📖</div>
                 <p class="upload-text">Drop a manga page here or click to upload</p>
@@ -493,7 +524,11 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('Streaming failed, trying regular endpoint...');
+                    // Handle specific error codes
+                    const errorData = await response.json().catch(() => ({}));
+                    handleApiError(response.status, errorData);
+                    translateBtn.disabled = false;
+                    return;
                 }
 
                 const reader = response.body.getReader();
@@ -517,9 +552,11 @@
                                     bubbleCount++;
                                     showStatus('loading', `<span class="spinner"></span>Found ${bubbleCount} bubbles...`);
                                 } else if (data.type === 'done') {
-                                    showStatus('success', `✅ Translated ${data.count} speech bubbles!`);
+                                    showStatus('success', `Translated ${data.count} speech bubbles!`);
                                 } else if (data.type === 'error') {
-                                    throw new Error(data.message);
+                                    handleApiError(null, data);
+                                    translateBtn.disabled = false;
+                                    return;
                                 }
                             } catch (e) {
                                 // Skip invalid JSON
@@ -547,23 +584,65 @@
                     });
 
                     if (!response.ok) {
-                        throw new Error(`API error: ${response.status}`);
+                        const errorData = await response.json().catch(() => ({}));
+                        handleApiError(response.status, errorData);
+                        translateBtn.disabled = false;
+                        return;
                     }
 
                     const result = await response.json();
 
                     if (result.bubbles && result.bubbles.length > 0) {
                         result.bubbles.forEach(bubble => renderBubble(bubble));
-                        showStatus('success', `✅ Translated ${result.bubbles.length} speech bubbles!`);
+                        showStatus('success', `Translated ${result.bubbles.length} speech bubbles!`);
                     } else {
                         showStatus('success', 'No speech bubbles detected on this image.');
                     }
                 } catch (fallbackError) {
-                    showStatus('error', `❌ Error: ${fallbackError.message}`);
+                    showStatus('error', `Error: ${fallbackError.message}`);
                 }
             }
 
             translateBtn.disabled = false;
+        }
+
+        function handleApiError(statusCode, errorData) {
+            const code = errorData.code || '';
+            const message = errorData.message || errorData.error || 'An error occurred';
+            
+            if (statusCode === 429 || code === 'RATE_LIMIT') {
+                showStatus('warning', `
+                    <strong>&#9888; Rate Limit Exceeded</strong>
+                    <div class="error-details">
+                        ${message}
+                        <br><br>
+                        <strong>Tip:</strong> Wait about a minute before trying again, or try with a smaller image.
+                    </div>
+                `);
+            } else if (statusCode === 503 || code === 'SERVICE_UNAVAILABLE') {
+                showStatus('warning', `
+                    <strong>&#9888; Service Temporarily Unavailable</strong>
+                    <div class="error-details">
+                        ${message}
+                        <br><br>
+                        <strong>Tip:</strong> The Gemini API is experiencing high load. Please try again in a few seconds.
+                    </div>
+                `);
+            } else if (statusCode === 404 || code === 'NOT_FOUND') {
+                showStatus('error', `
+                    <strong>&#10060; Service Not Found</strong>
+                    <div class="error-details">
+                        ${message}
+                    </div>
+                `);
+            } else {
+                showStatus('error', `
+                    <strong>&#10060; Translation Failed</strong>
+                    <div class="error-details">
+                        ${message}
+                    </div>
+                `);
+            }
         }
 
         function renderBubble(bubble) {
