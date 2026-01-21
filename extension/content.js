@@ -106,7 +106,9 @@
             console.log('[Manga Lens] Captured image, size:', imageData.length);
 
             // Step 2: Send to backend for translation
-            const response = await fetch(`${settings.backendUrl}/api/translate`, {
+            // Strip trailing slash from backend URL to avoid double slashes
+            const baseUrl = settings.backendUrl.replace(/\/+$/, '');
+            const response = await fetch(`${baseUrl}/api/translate`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
