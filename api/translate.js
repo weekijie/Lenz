@@ -1,10 +1,10 @@
-// Manga Lens Translation API
+// Lenz Translation API
 // Vercel Serverless Function - Gemini 3 Integration
 
 import { GoogleGenAI } from '@google/genai';
 
-// Translation prompt template - optimized for speed
-const buildPrompt = (context) => `You are a manga translator. Analyze this manga page and translate all speech bubbles.
+// Fast prompt - optimized for speed
+const buildFastPrompt = (context) => `You are a manga translator. Analyze this manga page and translate all speech bubbles.
 
 ${context?.title ? `Manga: ${context.title}` : ''}
 
@@ -19,7 +19,45 @@ For each bubble, return:
 Return ONLY a JSON array, no markdown:
 [{"bbox":[x,y,w,h],"japanese":"...","english":"...","emotion":"...","speaker":"...","culturalNote":null}]`;
 
+// Quality prompt - detailed analysis with cultural notes
+const buildQualityPrompt = (context) => `You are a professional manga translator specializing in Japanese to English translation.
+
+**MANGA CONTEXT:**
+${context?.title ? `- Title: ${context.title}` : ''}
+${context?.synopsis ? `- Synopsis: ${context.synopsis}` : ''}
+${context?.tags?.length ? `- Genre/Tags: ${context.tags.join(', ')}` : ''}
+
+**YOUR TASK:**
+Analyze the attached manga page image carefully. For each speech bubble or text box:
+
+1. **LOCATE**: Identify the bounding box as percentage coordinates [x%, y%, width%, height%] relative to the image dimensions.
+
+2. **READ**: Extract the original Japanese text inside the bubble.
+
+3. **TRANSLATE**: Provide a natural, contextual English translation that:
+   - Matches the character's personality and the scene's mood
+   - Uses appropriate tone (casual, formal, dramatic, etc.)
+   - Preserves any humor or wordplay when possible
+
+4. **DETECT EMOTION**: Analyze the speaker's emotion by looking at:
+   - Facial expression in the panel
+   - Speech bubble style (jagged = shouting, wavy = scared, cloud = thought)
+   - Art effects (speed lines, sweat drops, anger symbols)
+   - Choose from: neutral, shouting, whispering, excited, sad, angry, scared
+
+5. **IDENTIFY SPEAKER**: Based on bubble tail direction and visual context, provide character name or "unknown"
+
+6. **CULTURAL NOTE**: If the text contains Japanese idioms, puns, wordplay, or cultural references a Western reader might miss, add a brief explanation. Otherwise, set to null.
+
+**OUTPUT FORMAT:**
+Return ONLY a valid JSON array, no markdown code blocks:
+[{"bbox":[x,y,width,height],"japanese":"original text","english":"translated text","emotion":"emotion","speaker":"name","culturalNote":"explanation or null"}]`;
+
 import Cors from 'cors';
+
+export const config = {
+    maxDuration: 90,
+};
 
 // Allowed origins for CORS
 const allowedOrigins = [
@@ -77,20 +115,23 @@ export default async function handler(req, res) {
     try {
         // Check for API key
         if (!process.env.GEMINI_API_KEY) {
-            console.error('[Manga Lens API] GEMINI_API_KEY not set');
+            console.error('[Lenz API] GEMINI_API_KEY not set');
             res.status(500).json({ error: 'API key not configured' });
             return;
         }
 
-        const { image, context } = req.body;
+        const { image, context, mode } = req.body;
 
         if (!image) {
             res.status(400).json({ error: 'No image provided' });
             return;
         }
 
-        console.log('[Manga Lens API] Processing translation request');
-        console.log('[Manga Lens API] Context:', context?.title || 'No context');
+        // Select prompt based on mode (default: fast)
+        const qualityMode = mode === 'quality';
+        
+        console.log(`[Lenz API] Processing translation request (mode: ${qualityMode ? 'quality' : 'fast'})`);
+        console.log('[Lenz API] Context:', context?.title || 'No context');
 
         // Initialize Gemini client
         const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -108,7 +149,7 @@ export default async function handler(req, res) {
         }
 
         // Build the prompt with context
-        const prompt = buildPrompt(context);
+        const prompt = qualityMode ? buildQualityPrompt(context) : buildFastPrompt(context);
 
         // Call Gemini API with multimodal input
         // Using the @google/genai SDK v1.x pattern
@@ -151,7 +192,7 @@ export default async function handler(req, res) {
             } else {
                 // Log full structure for debugging (truncated)
                 const responseStr = JSON.stringify(response, null, 2);
-                console.log('[Manga Lens API] Response structure:', responseStr.substring(0, 1000));
+                console.log('[Lenz API] Response structure:', responseStr.substring(0, 1000));
                 
                 // Try to find text in the response object recursively
                 const findText = (obj, depth = 0) => {
@@ -169,14 +210,14 @@ export default async function handler(req, res) {
             }
 
             if (!text) {
-                console.error('[Manga Lens API] Could not extract text from response');
+                console.error('[Lenz API] Could not extract text from response');
             }
         } catch (extractError) {
-            console.error('[Manga Lens API] Error extracting text:', extractError);
+            console.error('[Lenz API] Error extracting text:', extractError);
             text = null;
         }
 
-        console.log('[Manga Lens API] Raw response:', text?.substring?.(0, 300));
+        console.log('[Lenz API] Raw response:', text?.substring?.(0, 300));
 
         // Parse the JSON response
         let bubbles;
@@ -194,7 +235,7 @@ export default async function handler(req, res) {
                 bubbles = JSON.parse(jsonText);
             } catch (e) {
                 // Attempt to repair truncated JSON
-                console.log('[Manga Lens API] Initial parse failed, attempting repair...');
+                console.log('[Lenz API] Initial parse failed, attempting repair...');
                 
                 if (jsonText.startsWith('[')) {
                     // Strategy 1: Find last complete object and close array
@@ -202,14 +243,14 @@ export default async function handler(req, res) {
                     if (lastCompleteObject) {
                         try {
                             bubbles = JSON.parse(lastCompleteObject);
-                            console.log('[Manga Lens API] Repaired JSON (strategy 1): found', bubbles.length, 'complete bubbles');
+                            console.log('[Lenz API] Repaired JSON (strategy 1): found', bubbles.length, 'complete bubbles');
                         } catch (repairError) {
                             // Strategy 2: Try to find any valid JSON array
                             const match = jsonText.match(/\[[\s\S]*?\}/);
                             if (match) {
                                 try {
                                     bubbles = JSON.parse(match[0] + ']');
-                                    console.log('[Manga Lens API] Repaired JSON (strategy 2): found', bubbles.length, 'bubbles');
+                                    console.log('[Lenz API] Repaired JSON (strategy 2): found', bubbles.length, 'bubbles');
                                 } catch {
                                     throw e; // Throw original error
                                 }
@@ -241,14 +282,14 @@ export default async function handler(req, res) {
             }));
 
         } catch (parseError) {
-            console.error('[Manga Lens API] Failed to parse response:', parseError);
-            console.error('[Manga Lens API] Raw text:', text?.substring?.(0, 500) || 'null');
+            console.error('[Lenz API] Failed to parse response:', parseError);
+            console.error('[Lenz API] Raw text:', text?.substring?.(0, 500) || 'null');
 
             // Return empty bubbles on parse error
             bubbles = [];
         }
 
-        console.log('[Manga Lens API] Found', bubbles.length, 'bubbles');
+        console.log('[Lenz API] Found', bubbles.length, 'bubbles');
 
         res.status(200).json({
             success: true,
@@ -257,7 +298,7 @@ export default async function handler(req, res) {
         });
 
     } catch (error) {
-        console.error('[Manga Lens API] Error:', error);
+        console.error('[Lenz API] Error:', error);
 
         // Handle specific Gemini API errors
         const errorMessage = error.message || 'Translation failed';

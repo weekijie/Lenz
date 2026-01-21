@@ -1,10 +1,10 @@
-// Manga Lens Streaming Translation API
+// Lenz Streaming Translation API
 // Vercel Serverless Function - Gemini 3 with Server-Sent Events
 
 import { GoogleGenAI } from '@google/genai';
 
-// Translation prompt template - optimized for speed
-const buildPrompt = (context) => `You are a manga translator. Analyze this manga page and translate all speech bubbles.
+// Fast prompt - optimized for speed
+const buildFastPrompt = (context) => `You are a manga translator. Analyze this manga page and translate all speech bubbles.
 
 ${context?.title ? `Manga: ${context.title}` : ''}
 
@@ -13,8 +13,44 @@ For each bubble, return ONE JSON object per line (NDJSON format):
 
 Output each bubble on its own line as you identify it. No array brackets, just one object per line.`;
 
+// Quality prompt - detailed analysis with cultural notes
+const buildQualityPrompt = (context) => `You are a professional manga translator specializing in Japanese to English translation.
+
+**MANGA CONTEXT:**
+${context?.title ? `- Title: ${context.title}` : ''}
+${context?.synopsis ? `- Synopsis: ${context.synopsis}` : ''}
+${context?.tags?.length ? `- Genre/Tags: ${context.tags.join(', ')}` : ''}
+
+**YOUR TASK:**
+Analyze the attached manga page image carefully. For each speech bubble or text box:
+
+1. **LOCATE**: Identify the bounding box as percentage coordinates [x%, y%, width%, height%] relative to the image dimensions.
+
+2. **READ**: Extract the original Japanese text inside the bubble.
+
+3. **TRANSLATE**: Provide a natural, contextual English translation that:
+   - Matches the character's personality and the scene's mood
+   - Uses appropriate tone (casual, formal, dramatic, etc.)
+   - Preserves any humor or wordplay when possible
+
+4. **DETECT EMOTION**: Analyze the speaker's emotion by looking at:
+   - Facial expression in the panel
+   - Speech bubble style (jagged = shouting, wavy = scared, cloud = thought)
+   - Art effects (speed lines, sweat drops, anger symbols)
+   - Choose from: neutral, shouting, whispering, excited, sad, angry, scared
+
+5. **IDENTIFY SPEAKER**: Based on bubble tail direction and visual context, provide character name or "unknown"
+
+6. **CULTURAL NOTE**: If the text contains Japanese idioms, puns, wordplay, or cultural references a Western reader might miss, add a brief explanation. Otherwise, set to null.
+
+**OUTPUT FORMAT:**
+Return ONE JSON object per line (NDJSON format), no array brackets:
+{"bbox":[x,y,width,height],"japanese":"original text","english":"translated text","emotion":"emotion","speaker":"name","culturalNote":"explanation or null"}
+
+Output each bubble on its own line as you identify it.`;
+
 export const config = {
-    maxDuration: 60,
+    maxDuration: 90,
 };
 
 // Allowed origins for CORS
@@ -55,14 +91,18 @@ export default async function handler(req, res) {
             return;
         }
 
-        const { image, context } = req.body;
+        const { image, context, mode } = req.body;
 
         if (!image) {
             res.status(400).json({ error: 'No image provided' });
             return;
         }
 
-        console.log('[Manga Lens Stream] Processing translation request');
+        // Select prompt based on mode (default: fast)
+        const qualityMode = mode === 'quality';
+        const prompt = qualityMode ? buildQualityPrompt(context) : buildFastPrompt(context);
+        
+        console.log(`[Lenz Stream] Processing translation request (mode: ${qualityMode ? 'quality' : 'fast'})`);
 
         // Set up SSE headers
         res.setHeader('Content-Type', 'text/event-stream');
@@ -82,8 +122,6 @@ export default async function handler(req, res) {
                 imageData = matches[2];
             }
         }
-
-        const prompt = buildPrompt(context);
 
         // Use streaming API
         const streamResponse = await genAI.models.generateContentStream({
@@ -146,10 +184,10 @@ export default async function handler(req, res) {
                     // Send as SSE event
                     res.write(`data: ${JSON.stringify({ type: 'bubble', bubble: cleanBubble })}\n\n`);
                     
-                    console.log(`[Manga Lens Stream] Sent bubble ${bubbleCount}`);
+                    console.log(`[Lenz Stream] Sent bubble ${bubbleCount}`);
                 } catch (e) {
                     // Not valid JSON yet, might be partial
-                    console.log('[Manga Lens Stream] Skipping invalid line:', trimmed.substring(0, 50));
+                    console.log('[Lenz Stream] Skipping invalid line:', trimmed.substring(0, 50));
                 }
             }
         }
@@ -178,12 +216,12 @@ export default async function handler(req, res) {
 
         // Send completion event
         res.write(`data: ${JSON.stringify({ type: 'done', count: bubbleCount })}\n\n`);
-        console.log(`[Manga Lens Stream] Complete: ${bubbleCount} bubbles`);
+        console.log(`[Lenz Stream] Complete: ${bubbleCount} bubbles`);
         
         res.end();
 
     } catch (error) {
-        console.error('[Manga Lens Stream] Error:', error);
+        console.error('[Lenz Stream] Error:', error);
         
         // Handle specific Gemini API errors
         const errorMessage = error.message || 'Translation failed';

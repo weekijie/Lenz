@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Manga Lens</title>
+  <title>Lenz</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -11,7 +11,7 @@
     <header class="header">
       <div class="logo">
         <span class="logo-icon">📖</span>
-        <h1>Manga Lens</h1>
+        <h1>Lenz</h1>
       </div>
       <span class="version">v1.0</span>
     </header>
@@ -45,6 +45,16 @@
       </button>
 
       <!-- Mode Toggle -->
+      <div class="mode-toggle">
+        <label class="toggle-label">
+          <input type="checkbox" id="qualityMode" />
+          <span class="toggle-slider"></span>
+          <span class="toggle-text">Quality Mode</span>
+        </label>
+        <span class="mode-hint" id="modeHint">Fast (~5s)</span>
+      </div>
+
+      <!-- Auto Mode Toggle -->
       <div class="mode-toggle">
         <label class="toggle-label">
           <input type="checkbox" id="autoMode" />

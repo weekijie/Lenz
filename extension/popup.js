@@ -1,4 +1,4 @@
-// Manga Lens Popup Script
+// Lenz Popup Script
 
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Elements
@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const mangaTitle = document.getElementById('mangaTitle');
   const mangaTags = document.getElementById('mangaTags');
   const autoMode = document.getElementById('autoMode');
+  const qualityMode = document.getElementById('qualityMode');
+  const modeHint = document.getElementById('modeHint');
   const backendUrl = document.getElementById('backendUrl');
   const overlayStyle = document.getElementById('overlayStyle');
   const saveSettings = document.getElementById('saveSettings');
@@ -17,12 +19,33 @@ document.addEventListener('DOMContentLoaded', async () => {
   const settings = await chrome.storage.local.get([
     'backendUrl',
     'overlayStyle',
-    'autoMode'
+    'autoMode',
+    'qualityMode'
   ]);
   
   if (settings.backendUrl) backendUrl.value = settings.backendUrl;
   if (settings.overlayStyle) overlayStyle.value = settings.overlayStyle;
   if (settings.autoMode) autoMode.checked = settings.autoMode;
+  if (settings.qualityMode) {
+    qualityMode.checked = settings.qualityMode;
+    updateModeHint(true);
+  }
+
+  // Quality mode toggle
+  qualityMode.addEventListener('change', async () => {
+    await chrome.storage.local.set({ qualityMode: qualityMode.checked });
+    updateModeHint(qualityMode.checked);
+  });
+
+  function updateModeHint(isQuality) {
+    if (isQuality) {
+      modeHint.textContent = 'Quality (~15-30s)';
+      modeHint.classList.add('quality');
+    } else {
+      modeHint.textContent = 'Fast (~5s)';
+      modeHint.classList.remove('quality');
+    }
+  }
 
   // Check if we're on a manga page and get context
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -51,7 +74,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    setStatus('loading', 'Capturing page...');
+    const modeLabel = qualityMode.checked ? 'Quality Mode' : 'Fast Mode';
+    setStatus('loading', `Capturing page (${modeLabel})...`);
     translateBtn.disabled = true;
     translateBtn.classList.add('loading');
 
@@ -61,7 +85,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         action: 'translatePage',
         settings: {
           backendUrl: backendUrl.value || settings.backendUrl,
-          overlayStyle: overlayStyle.value || settings.overlayStyle || 'solid'
+          overlayStyle: overlayStyle.value || settings.overlayStyle || 'solid',
+          qualityMode: qualityMode.checked
         }
       });
 
@@ -84,7 +109,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.storage.local.set({
       backendUrl: backendUrl.value,
       overlayStyle: overlayStyle.value,
-      autoMode: autoMode.checked
+      autoMode: autoMode.checked,
+      qualityMode: qualityMode.checked
     });
     
     // Flash button to confirm

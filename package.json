@@ -1,7 +1,7 @@
 {
-    "name": "manga-lens-server",
+    "name": "lenz-server",
     "version": "1.0.0",
-    "description": "Backend proxy for Manga Lens - Gemini 3 translation API",
+    "description": "Backend proxy for Lenz - Gemini 3 translation API",
     "type": "module",
     "scripts": {
         "dev": "vercel dev",

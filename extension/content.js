@@ -1,4 +1,4 @@
-// Manga Lens Content Script
+// Lenz Content Script
 // Handles page interaction, canvas capture, and overlay rendering
 
 (function () {
@@ -14,7 +14,7 @@
     initialize();
 
     function initialize() {
-        console.log('[Manga Lens] Content script loaded');
+        console.log('[Lenz] Content script loaded');
 
         // Extract manga context from the page
         extractMangaContext();
@@ -49,16 +49,16 @@
                 url: window.location.href
             };
 
-            console.log('[Manga Lens] Extracted context:', mangaContext);
+            console.log('[Lenz] Extracted context:', mangaContext);
         } catch (e) {
-            console.error('[Manga Lens] Failed to extract context:', e);
+            console.error('[Lenz] Failed to extract context:', e);
             mangaContext = { title: document.title, tags: [], synopsis: '' };
         }
     }
 
     // Handle messages from popup/background
     function handleMessage(request, sender, sendResponse) {
-        console.log('[Manga Lens] Received message:', request.action);
+        console.log('[Lenz] Received message:', request.action);
 
         switch (request.action) {
             case 'getMangaContext':
@@ -73,7 +73,7 @@
 
             case 'setAutoMode':
                 autoMode = request.enabled;
-                console.log('[Manga Lens] Auto mode:', autoMode);
+                console.log('[Lenz] Auto mode:', autoMode);
                 sendResponse({ success: true });
                 break;
 
@@ -184,7 +184,7 @@
                 throw new Error('Failed to capture page image');
             }
 
-            console.log('[Manga Lens] Capture method:', captureResult.type);
+            console.log('[Lenz] Capture method:', captureResult.type);
 
             // Step 2: Send to backend for translation (try streaming first)
             const baseUrl = settings.backendUrl.replace(/\/+$/, '');
@@ -194,13 +194,13 @@
                 const result = await translateWithStreaming(baseUrl, captureResult, settings);
                 return result;
             } catch (streamError) {
-                console.log('[Manga Lens] Streaming failed, falling back to regular endpoint:', streamError.message);
+                console.log('[Lenz] Streaming failed, falling back to regular endpoint:', streamError.message);
                 // Fall back to regular endpoint
                 return await translateWithRegularEndpoint(baseUrl, captureResult, settings, retryCount);
             }
 
         } catch (error) {
-            console.error('[Manga Lens] Translation error:', error);
+            console.error('[Lenz] Translation error:', error);
             throw error;
         } finally {
             isTranslating = false;
@@ -255,7 +255,7 @@
                     reader.read().then(({ done, value }) => {
                         if (done) {
                             clearTimeout(timeoutId);
-                            console.log('[Manga Lens] Stream complete:', bubbleCount, 'bubbles');
+                            console.log('[Lenz] Stream complete:', bubbleCount, 'bubbles');
                             resolve({ success: true, bubbleCount });
                             return;
                         }
@@ -281,7 +281,7 @@
                                         container.appendChild(overlay);
                                         translationOverlays.push(overlay);
                                         bubbleCount++;
-                                        console.log(`[Manga Lens] Rendered bubble ${bubbleCount}`);
+                                        console.log(`[Lenz] Rendered bubble ${bubbleCount}`);
                                     } else if (data.type === 'done') {
                                         clearTimeout(timeoutId);
                                         resolve({ success: true, bubbleCount: data.count });
@@ -293,7 +293,7 @@
                                         return;
                                     }
                                 } catch (e) {
-                                    console.warn('[Manga Lens] Failed to parse SSE:', line);
+                                    console.warn('[Lenz] Failed to parse SSE:', line);
                                 }
                             }
                         }
@@ -331,7 +331,7 @@
 
             // Auto-retry on 503 (overloaded) errors
             if (response.status === 503 && retryCount < 2) {
-                console.log(`[Manga Lens] Model overloaded, retrying in 5s... (attempt ${retryCount + 1})`);
+                console.log(`[Lenz] Model overloaded, retrying in 5s... (attempt ${retryCount + 1})`);
                 hideLoading();
                 isTranslating = false;
                 await new Promise(r => setTimeout(r, 5000));
@@ -344,7 +344,7 @@
         }
 
         const result = await response.json();
-        console.log('[Manga Lens] Translation result:', result);
+        console.log('[Lenz] Translation result:', result);
 
         // Step 3: Render overlays
         if (result.bubbles && result.bubbles.length > 0) {
@@ -388,13 +388,13 @@
         let maxArea = 0;
         let largeVisibleCanvases = 0;
 
-        console.log(`[Manga Lens] Found ${canvases.length} canvases`);
+        console.log(`[Lenz] Found ${canvases.length} canvases`);
 
         canvases.forEach((canvas, index) => {
             const area = canvas.width * canvas.height;
             const visible = isVisible(canvas);
 
-            console.log(`[Manga Lens] Canvas ${index}: ${canvas.width}x${canvas.height} (Area: ${area}, Visible: ${visible})`);
+            console.log(`[Lenz] Canvas ${index}: ${canvas.width}x${canvas.height} (Area: ${area}, Visible: ${visible})`);
 
             // Ignore small canvases (likely UI or icons)
             if (area > 10000 && visible) {
@@ -407,14 +407,14 @@
         });
 
         if (largeVisibleCanvases > 1) {
-            console.log('[Manga Lens] Multiple large visible canvases detected (Double page spread?). Favoring full tab capture.');
+            console.log('[Lenz] Multiple large visible canvases detected (Double page spread?). Favoring full tab capture.');
             return null; // Force null to trigger tab capture
         }
 
         if (targetCanvas) {
-            console.log(`[Manga Lens] Selected canvas: ${targetCanvas.width}x${targetCanvas.height}`);
+            console.log(`[Lenz] Selected canvas: ${targetCanvas.width}x${targetCanvas.height}`);
         } else {
-            console.warn('[Manga Lens] No suitable target canvas found');
+            console.warn('[Lenz] No suitable target canvas found');
         }
 
         return targetCanvas;
@@ -440,7 +440,7 @@
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
                 const resized = canvas.toDataURL('image/jpeg', 0.6);
-                console.log(`[Manga Lens] Resized image: ${img.width}x${img.height} → ${canvas.width}x${canvas.height}`);
+                console.log(`[Lenz] Resized image: ${img.width}x${img.height} → ${canvas.width}x${canvas.height}`);
                 resolve(resized);
             };
             img.src = dataUrl;
@@ -463,7 +463,7 @@
                 };
             } catch (e) {
                 // Canvas might be tainted by cross-origin images
-                console.warn('[Manga Lens] Canvas tainted, falling back to tab capture');
+                console.warn('[Lenz] Canvas tainted, falling back to tab capture');
             }
         }
 
@@ -512,7 +512,7 @@
         }
 
         if (!container) {
-            console.error('[Manga Lens] Could not find container for overlays');
+            console.error('[Lenz] Could not find container for overlays');
             return;
         }
 
@@ -532,7 +532,7 @@
         requestAnimationFrame(() => {
             container.appendChild(fragment);
             translationOverlays.push(...newOverlays);
-            console.log('[Manga Lens] Rendered', bubbles.length, 'overlays');
+            console.log('[Lenz] Rendered', bubbles.length, 'overlays');
         });
     }
 
@@ -678,14 +678,14 @@
     // NOTE: Auto-translate on page turn is disabled for now.
     // Users should click "Translate" button manually per page.
     function observePageChanges() {
-        console.log('[Manga Lens] Starting page observation (URL changes only)...');
+        console.log('[Lenz] Starting page observation (URL changes only)...');
 
         // URL Observer (for chapter changes)
         let lastUrl = window.location.href;
         const urlObserver = new MutationObserver(() => {
             if (window.location.href !== lastUrl) {
                 lastUrl = window.location.href;
-                console.log('[Manga Lens] URL changed, context reset');
+                console.log('[Lenz] URL changed, context reset');
                 clearOverlays();
                 extractMangaContext();
             }

@@ -3,10 +3,10 @@
     "regions": ["sin1"],
     "functions": {
         "api/translate.js": {
-            "maxDuration": 60
+            "maxDuration": 90
         },
         "api/translate-stream.js": {
-            "maxDuration": 60
+            "maxDuration": 90
         }
     },
     "rewrites": [

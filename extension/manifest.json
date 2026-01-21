@@ -1,6 +1,6 @@
 {
     "manifest_version": 3,
-    "name": "Manga Lens",
+    "name": "Lenz",
     "version": "1.0.0",
     "description": "Translate manga pages in real-time using Gemini 3 AI with context-aware translations",
     "icons": {

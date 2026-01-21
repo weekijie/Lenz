@@ -1,9 +1,9 @@
-// Manga Lens Background Service Worker
+// Lenz Background Service Worker
 // Handles tab capture and message routing
 
 // Listen for messages from content scripts and popup
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    console.log('[Manga Lens BG] Received:', request.action);
+    console.log('[Lenz BG] Received:', request.action);
 
     switch (request.action) {
         case 'captureTab':
@@ -35,18 +35,18 @@ async function captureTabScreenshot(tabId) {
             quality: 85
         });
 
-        console.log('[Manga Lens BG] Captured tab screenshot');
+        console.log('[Lenz BG] Captured tab screenshot');
         return dataUrl;
 
     } catch (error) {
-        console.error('[Manga Lens BG] Capture error:', error);
+        console.error('[Lenz BG] Capture error:', error);
         throw error;
     }
 }
 
 // Handle extension install/update
 chrome.runtime.onInstalled.addListener((details) => {
-    console.log('[Manga Lens] Extension installed/updated:', details.reason);
+    console.log('[Lenz] Extension installed/updated:', details.reason);
 
     // Set default settings
     chrome.storage.local.get(['backendUrl'], (result) => {
@@ -61,4 +61,4 @@ chrome.runtime.onInstalled.addListener((details) => {
 });
 
 // Log when service worker starts
-console.log('[Manga Lens] Background service worker started');
+console.log('[Lenz] Background service worker started');

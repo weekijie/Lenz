@@ -1,4 +1,4 @@
-/* Manga Lens Popup Styles */
+/* Lenz Popup Styles */
 :root {
   --bg-primary: #0f0f1a;
   --bg-secondary: #1a1a2e;
@@ -400,4 +400,15 @@ body {
 .status-card.error {
   border-color: rgba(239, 68, 68, 0.3);
   background: rgba(239, 68, 68, 0.1);
+}
+
+/* Mode hint text */
+.mode-hint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.mode-hint.quality {
+  color: var(--accent);
 }
