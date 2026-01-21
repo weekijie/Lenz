@@ -59,20 +59,41 @@ Return a JSON array with this exact structure:
   }
 ]`;
 
-export default async function handler(req, res) {
-    // Set CORS headers for ALL responses (including OPTIONS)
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+import Cors from 'cors';
 
-    // Handle OPTIONS preflight immediately
-    if (req.method === 'OPTIONS') {
-        res.status(200).end();
-        return;
+// Initialize the cors middleware
+const cors = Cors({
+    methods: ['GET', 'POST', 'OPTIONS'],
+    origin: '*', // Allow all origins
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+    credentials: false // Important: must be false when origin is "*"
+});
+
+// Helper method to wait for a middleware to execute before continuing
+function runMiddleware(req, res, fn) {
+    return new Promise((resolve, reject) => {
+        fn(req, res, (result) => {
+            if (result instanceof Error) {
+                return reject(result);
+            }
+            return resolve(result);
+        });
+    });
+}
+
+export default async function handler(req, res) {
+    // Run the middleware
+    try {
+        await runMiddleware(req, res, cors);
+    } catch (e) {
+        console.error('CORS Middleware Error:', e);
+        return res.status(500).json({ error: 'Internal Server Error (CORS)' });
     }
 
     // Only accept POST
     if (req.method !== 'POST') {
+        // OPTIONS is handled by cors middleware automatically (returns 204)
+        // If we get here, it's likely a GET or other method
         res.status(405).json({ error: 'Method not allowed' });
         return;
     }
