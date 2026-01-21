@@ -1,0 +1,181 @@
+// Manga Lens Translation API
+// Vercel Serverless Function - Gemini 3 Integration
+
+import { GoogleGenAI } from '@google/genai';
+
+// Initialize Gemini client
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+// Translation prompt template
+const buildPrompt = (context) => `You are a professional manga translator specializing in Japanese to English translation.
+
+**MANGA CONTEXT:**
+${context?.title ? `- Title: ${context.title}` : ''}
+${context?.synopsis ? `- Synopsis: ${context.synopsis}` : ''}
+${context?.tags?.length ? `- Genre/Tags: ${context.tags.join(', ')}` : ''}
+
+**YOUR TASK:**
+Analyze the attached manga page image carefully. For each speech bubble or text box you find:
+
+1. **LOCATE**: Identify the bounding box as percentage coordinates [x%, y%, width%, height%] relative to the image dimensions. x,y is the top-left corner.
+
+2. **READ**: Extract the original Japanese text inside the bubble.
+
+3. **TRANSLATE**: Provide a natural, contextual English translation that:
+   - Matches the character's personality and the scene's mood
+   - Uses appropriate tone (casual, formal, dramatic, etc.)
+   - Preserves any humor or wordplay when possible
+
+4. **DETECT EMOTION**: Analyze the speaker's emotion by looking at:
+   - Facial expression in the panel
+   - Speech bubble style (jagged = shouting, wavy = scared, cloud = thought)
+   - Art effects (speed lines, sweat drops, anger symbols 💢)
+   - Choose from: neutral, shouting, whispering, excited, sad, angry, scared
+
+5. **IDENTIFY SPEAKER**: If you can determine who is speaking based on:
+   - The bubble's tail pointing to a character
+   - Visual context in the panel
+   - Provide the character name or "unknown"
+
+6. **CULTURAL NOTE**: If the text contains any of the following, add an explanation:
+   - Japanese idioms that don't translate directly
+   - Puns or wordplay (explain the original joke)
+   - Cultural references a Western reader might miss
+   - Honorifics usage that affects meaning
+
+**IMPORTANT RULES:**
+- Return ONLY valid JSON, no markdown code blocks
+- If no speech bubbles are found, return an empty array: []
+- Bounding box values must be percentages (0-100)
+- Be accurate with bubble positions - they will be used for overlays
+
+**OUTPUT FORMAT:**
+Return a JSON array with this exact structure:
+[
+  {
+    "bbox": [x, y, width, height],
+    "japanese": "original Japanese text",
+    "english": "translated English text",
+    "emotion": "detected emotion",
+    "speaker": "character name or unknown",
+    "culturalNote": "explanation if applicable, or null"
+  }
+]`;
+
+export default async function handler(req, res) {
+    // Handle CORS preflight
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    // Only accept POST
+    if (req.method !== 'POST') {
+        res.status(405).json({ error: 'Method not allowed' });
+        return;
+    }
+
+    try {
+        const { image, context } = req.body;
+
+        if (!image) {
+            res.status(400).json({ error: 'No image provided' });
+            return;
+        }
+
+        console.log('[Manga Lens API] Processing translation request');
+        console.log('[Manga Lens API] Context:', context?.title || 'No context');
+
+        // Extract base64 data from data URL if needed
+        let imageData = image;
+        let mimeType = 'image/jpeg';
+
+        if (image.startsWith('data:')) {
+            const matches = image.match(/^data:([^;]+);base64,(.+)$/);
+            if (matches) {
+                mimeType = matches[1];
+                imageData = matches[2];
+            }
+        }
+
+        // Build the prompt with context
+        const prompt = buildPrompt(context);
+
+        // Call Gemini 3 API with multimodal input
+        const model = genAI.getGenerativeModel({
+            model: 'gemini-3-pro',
+            generationConfig: {
+                temperature: 0.3,  // Lower for more consistent translations
+                topP: 0.8,
+                maxOutputTokens: 4096
+            }
+        });
+
+        const result = await model.generateContent([
+            prompt,
+            {
+                inlineData: {
+                    mimeType: mimeType,
+                    data: imageData
+                }
+            }
+        ]);
+
+        const response = await result.response;
+        const text = response.text();
+
+        console.log('[Manga Lens API] Raw response:', text.substring(0, 200));
+
+        // Parse the JSON response
+        let bubbles;
+        try {
+            // Try to extract JSON from the response (handle potential markdown wrapping)
+            let jsonText = text.trim();
+
+            // Remove markdown code blocks if present
+            if (jsonText.startsWith('```')) {
+                jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+            }
+
+            bubbles = JSON.parse(jsonText);
+
+            // Validate structure
+            if (!Array.isArray(bubbles)) {
+                throw new Error('Response is not an array');
+            }
+
+            // Validate and clean each bubble
+            bubbles = bubbles.map((bubble, index) => ({
+                bbox: Array.isArray(bubble.bbox) ? bubble.bbox.map(Number) : [0, 0, 10, 5],
+                japanese: String(bubble.japanese || ''),
+                english: String(bubble.english || bubble.translation || ''),
+                emotion: String(bubble.emotion || 'neutral'),
+                speaker: String(bubble.speaker || 'unknown'),
+                culturalNote: bubble.culturalNote || bubble.cultural_note || null
+            }));
+
+        } catch (parseError) {
+            console.error('[Manga Lens API] Failed to parse response:', parseError);
+            console.error('[Manga Lens API] Raw text:', text);
+
+            // Return empty bubbles on parse error
+            bubbles = [];
+        }
+
+        console.log('[Manga Lens API] Found', bubbles.length, 'bubbles');
+
+        res.status(200).json({
+            success: true,
+            bubbles: bubbles,
+            context: context?.title || null
+        });
+
+    } catch (error) {
+        console.error('[Manga Lens API] Error:', error);
+
+        res.status(500).json({
+            error: error.message || 'Translation failed',
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+}

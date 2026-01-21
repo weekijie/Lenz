@@ -1,0 +1,16 @@
+{
+    "name": "manga-lens-server",
+    "version": "1.0.0",
+    "description": "Backend proxy for Manga Lens - Gemini 3 translation API",
+    "type": "module",
+    "scripts": {
+        "dev": "vercel dev",
+        "deploy": "vercel --prod"
+    },
+    "dependencies": {
+        "@google/genai": "^1.0.0"
+    },
+    "engines": {
+        "node": ">=18"
+    }
+}

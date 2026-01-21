@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manga Lens</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo">
+        <span class="logo-icon">📖</span>
+        <h1>Manga Lens</h1>
+      </div>
+      <span class="version">v1.0</span>
+    </header>
+
+    <main class="main">
+      <!-- Status Section -->
+      <div class="status-card" id="statusCard">
+        <div class="status-indicator" id="statusIndicator"></div>
+        <span class="status-text" id="statusText">Ready to translate</span>
+      </div>
+
+      <!-- Manga Context (when available) -->
+      <div class="context-card hidden" id="contextCard">
+        <div class="context-header">
+          <span class="context-icon">📚</span>
+          <span class="context-title" id="mangaTitle">-</span>
+        </div>
+        <div class="context-tags" id="mangaTags"></div>
+      </div>
+
+      <!-- Main Action Button -->
+      <button class="translate-btn" id="translateBtn">
+        <span class="btn-icon">🔄</span>
+        <span class="btn-text">Translate Page</span>
+      </button>
+
+      <!-- Mode Toggle -->
+      <div class="mode-toggle">
+        <label class="toggle-label">
+          <input type="checkbox" id="autoMode" />
+          <span class="toggle-slider"></span>
+          <span class="toggle-text">Auto-translate on page turn</span>
+        </label>
+      </div>
+
+      <!-- Settings Section -->
+      <details class="settings-section">
+        <summary class="settings-header">
+          <span>⚙️ Settings</span>
+        </summary>
+        <div class="settings-content">
+          <div class="setting-item">
+            <label for="backendUrl">Backend URL</label>
+            <input type="text" id="backendUrl" placeholder="https://your-backend.vercel.app" />
+          </div>
+          <div class="setting-item">
+            <label>Overlay Style</label>
+            <select id="overlayStyle">
+              <option value="solid">Solid Background</option>
+              <option value="translucent">Translucent</option>
+              <option value="outline">Outline Only</option>
+            </select>
+          </div>
+          <button class="save-btn" id="saveSettings">Save Settings</button>
+        </div>
+      </details>
+    </main>
+
+    <footer class="footer">
+      <span>Powered by Gemini 3</span>
+      <a href="https://gemini3.devpost.com/" target="_blank">Hackathon</a>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
