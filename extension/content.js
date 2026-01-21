@@ -98,12 +98,12 @@
 
         try {
             // Step 1: Capture the manga canvas/image
-            const imageData = await capturePageImage();
-            if (!imageData) {
+            const captureResult = await capturePageImage();
+            if (!captureResult || !captureResult.imageData) {
                 throw new Error('Failed to capture page image');
             }
 
-            console.log('[Manga Lens] Captured image, size:', imageData.length);
+            console.log('[Manga Lens] Capture method:', captureResult.type);
 
             // Step 2: Send to backend for translation
             // Strip trailing slash from backend URL to avoid double slashes
@@ -114,7 +114,7 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    image: imageData,
+                    image: captureResult.imageData,
                     context: mangaContext
                 })
             });
@@ -129,7 +129,7 @@
 
             // Step 3: Render overlays
             if (result.bubbles && result.bubbles.length > 0) {
-                renderOverlays(result.bubbles, settings.overlayStyle);
+                renderOverlays(result.bubbles, settings.overlayStyle, captureResult);
                 return { success: true, bubbleCount: result.bubbles.length };
             } else {
                 return { success: true, bubbleCount: 0 };
@@ -143,41 +143,107 @@
         }
     }
 
-    // Capture the manga page image
-    async function capturePageImage() {
-        // Try to find canvas elements (Comic Walker uses canvas for rendering)
+    // Helper to check visibility (both CSS and Viewport Intersection)
+    function isVisible(el) {
+        if (!el) return false;
+
+        // 1. Check CSS visibility
+        const style = window.getComputedStyle(el);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+            return false;
+        }
+
+        // 2. Check Viewport Intersection
+        const rect = el.getBoundingClientRect();
+        const viewHeight = (window.innerHeight || document.documentElement.clientHeight);
+        const viewWidth = (window.innerWidth || document.documentElement.clientWidth);
+
+        // Check if any part of the element is in the viewport
+        const inViewport = (
+            rect.top < viewHeight &&
+            rect.bottom > 0 &&
+            rect.left < viewWidth &&
+            rect.right > 0
+        );
+
+        return inViewport;
+    }
+
+    // Find the largest canvas on the page (manga image)
+    function findTargetCanvas() {
         const canvases = document.querySelectorAll('canvas');
+        let targetCanvas = null;
+        let maxArea = 0;
+        let largeVisibleCanvases = 0;
 
-        if (canvases.length > 0) {
-            // Find the largest canvas (likely the manga page)
-            let targetCanvas = null;
-            let maxArea = 0;
+        console.log(`[Manga Lens] Found ${canvases.length} canvases`);
 
-            canvases.forEach(canvas => {
-                const area = canvas.width * canvas.height;
+        canvases.forEach((canvas, index) => {
+            const area = canvas.width * canvas.height;
+            const visible = isVisible(canvas);
+
+            console.log(`[Manga Lens] Canvas ${index}: ${canvas.width}x${canvas.height} (Area: ${area}, Visible: ${visible})`);
+
+            // Ignore small canvases (likely UI or icons)
+            if (area > 10000 && visible) {
+                largeVisibleCanvases++;
                 if (area > maxArea) {
                     maxArea = area;
                     targetCanvas = canvas;
                 }
-            });
+            }
+        });
 
-            if (targetCanvas && maxArea > 10000) {
-                try {
-                    // Try to get canvas data directly
-                    const dataUrl = targetCanvas.toDataURL('image/jpeg', 0.85);
-                    return dataUrl;
-                } catch (e) {
-                    // Canvas might be tainted by cross-origin images
-                    console.warn('[Manga Lens] Canvas tainted, falling back to tab capture');
-                }
+        if (largeVisibleCanvases > 1) {
+            console.log('[Manga Lens] Multiple large visible canvases detected (Double page spread?). Favoring full tab capture.');
+            return null; // Force null to trigger tab capture
+        }
+
+        if (targetCanvas) {
+            console.log(`[Manga Lens] Selected canvas: ${targetCanvas.width}x${targetCanvas.height}`);
+        } else {
+            console.warn('[Manga Lens] No suitable target canvas found');
+        }
+
+        return targetCanvas;
+    }
+
+    // Capture the manga page image
+    async function capturePageImage() {
+        const targetCanvas = findTargetCanvas();
+
+        if (targetCanvas) {
+            try {
+                // Try to get canvas data directly
+                const dataUrl = targetCanvas.toDataURL('image/jpeg', 0.85);
+                return {
+                    imageData: dataUrl,
+                    type: 'canvas',
+                    element: targetCanvas
+                };
+            } catch (e) {
+                // Canvas might be tainted by cross-origin images
+                console.warn('[Manga Lens] Canvas tainted, falling back to tab capture');
             }
         }
 
         // Fallback: Request tab capture from background script
         return new Promise((resolve, reject) => {
+            // Capture viewport state/metrics at the moment of capture
+            const meta = {
+                scrollX: window.scrollX,
+                scrollY: window.scrollY,
+                vw: window.innerWidth,
+                vh: window.innerHeight
+            };
+
             chrome.runtime.sendMessage({ action: 'captureTab' }, response => {
                 if (response?.imageData) {
-                    resolve(response.imageData);
+                    resolve({
+                        imageData: response.imageData,
+                        type: 'tab',
+                        meta: meta
+                    });
                 } else {
                     reject(new Error('Tab capture failed'));
                 }
@@ -186,18 +252,32 @@
     }
 
     // Render translation overlays
-    function renderOverlays(bubbles, style = 'solid') {
-        // Get the manga content container
-        const container = findMangaContainer();
+    function renderOverlays(bubbles, style = 'solid', captureResult = { type: 'canvas' }) {
+        let container;
+
+        if (captureResult.type === 'tab') {
+            // usage: absolute positioning on body based on captured scroll pos
+            container = document.body;
+        } else {
+            // usage: relative positioning on canvas parent
+            container = captureResult.element ? captureResult.element.parentElement : findMangaContainer();
+            if (container) {
+                const computedStyle = window.getComputedStyle(container);
+                if (computedStyle.position === 'static') {
+                    container.style.position = 'relative';
+                }
+            }
+        }
+
         if (!container) {
-            console.error('[Manga Lens] Could not find manga container');
+            console.error('[Manga Lens] Could not find container for overlays');
             return;
         }
 
         const containerRect = container.getBoundingClientRect();
 
         bubbles.forEach((bubble, index) => {
-            const overlay = createOverlay(bubble, containerRect, style, index);
+            const overlay = createOverlay(bubble, container, style, index, captureResult);
             container.appendChild(overlay);
             translationOverlays.push(overlay);
         });
@@ -207,10 +287,9 @@
 
     // Find the manga content container
     function findMangaContainer() {
-        // Look for canvas parent or main content area
-        const canvas = document.querySelector('canvas');
-        if (canvas) {
-            return canvas.parentElement;
+        const targetCanvas = findTargetCanvas();
+        if (targetCanvas) {
+            return targetCanvas.parentElement;
         }
 
         // Fallback to common container selectors
@@ -231,17 +310,35 @@
     }
 
     // Create a single overlay element
-    function createOverlay(bubble, containerRect, style, index) {
+    function createOverlay(bubble, container, style, index, captureResult) {
         const overlay = document.createElement('div');
         overlay.className = `manga-lens-overlay manga-lens-${style}`;
         overlay.dataset.index = index;
 
-        // Position based on bounding box (percentages)
         const [x, y, width, height] = bubble.bbox;
-        overlay.style.left = `${x}%`;
-        overlay.style.top = `${y}%`;
-        overlay.style.width = `${width}%`;
-        overlay.style.minHeight = `${height}%`;
+
+        if (captureResult && captureResult.type === 'tab') {
+            // Calculate absolute position based on viewport capture
+            const { scrollX, scrollY, vw, vh } = captureResult.meta;
+
+            // x, y, width, height are percentages of the viewport (at capture time)
+            const leftPx = scrollX + (x / 100 * vw);
+            const topPx = scrollY + (y / 100 * vh);
+            const widthPx = (width / 100 * vw);
+            const heightPx = (height / 100 * vh);
+
+            overlay.style.position = 'absolute';
+            overlay.style.left = `${leftPx}px`;
+            overlay.style.top = `${topPx}px`;
+            overlay.style.width = `${widthPx}px`;
+            overlay.style.minHeight = `${heightPx}px`;
+        } else {
+            // Relative to container (original logic)
+            overlay.style.left = `${x}%`;
+            overlay.style.top = `${y}%`;
+            overlay.style.width = `${width}%`;
+            overlay.style.minHeight = `${height}%`;
+        }
 
         // Add emotion class
         if (bubble.emotion) {
@@ -277,6 +374,8 @@
 
         return overlay;
     }
+
+
 
     // Show cultural note popup
     function showCulturalNote(note, anchor) {
@@ -315,41 +414,23 @@
         document.querySelectorAll('.manga-lens-note-popup').forEach(el => el.remove());
     }
 
-    // Watch for page navigation (new manga pages)
+    // Watch for page navigation (chapter changes only)
+    // NOTE: Auto-translate on page turn is disabled for now.
+    // Users should click "Translate" button manually per page.
     function observePageChanges() {
-        // Observe URL changes
-        let lastUrl = window.location.href;
+        console.log('[Manga Lens] Starting page observation (URL changes only)...');
 
-        const observer = new MutationObserver(() => {
+        // URL Observer (for chapter changes)
+        let lastUrl = window.location.href;
+        const urlObserver = new MutationObserver(() => {
             if (window.location.href !== lastUrl) {
                 lastUrl = window.location.href;
-                console.log('[Manga Lens] Page changed, clearing overlays');
+                console.log('[Manga Lens] URL changed, context reset');
                 clearOverlays();
                 extractMangaContext();
             }
         });
-
-        observer.observe(document.body, { childList: true, subtree: true });
-
-        // Also watch for canvas changes (page turn within reader)
-        const canvasObserver = new MutationObserver((mutations) => {
-            if (autoMode && !isTranslating) {
-                // Debounce auto-translation
-                clearTimeout(window.mangaLensAutoTimer);
-                window.mangaLensAutoTimer = setTimeout(async () => {
-                    const settings = await chrome.storage.local.get(['backendUrl', 'overlayStyle']);
-                    if (settings.backendUrl) {
-                        translatePage(settings);
-                    }
-                }, 500);
-            }
-        });
-
-        // Observe canvas parent for changes
-        const canvasParent = document.querySelector('canvas')?.parentElement;
-        if (canvasParent) {
-            canvasObserver.observe(canvasParent, { childList: true, subtree: true });
-        }
+        urlObserver.observe(document.body, { childList: true, subtree: true });
     }
 
 })();

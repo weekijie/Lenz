@@ -128,5 +128,5 @@ MIT License - Built with ❤️ for the Gemini 3 Hackathon
 
 ---
 
-**Made by**: [Your Name]  
+**Made by**: Ki Jie  
 **Powered by**: Google Gemini 3 ✨

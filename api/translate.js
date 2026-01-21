@@ -154,7 +154,7 @@ export default async function handler(req, res) {
             config: {
                 temperature: 0.3,
                 topP: 0.8,
-                maxOutputTokens: 4096
+                maxOutputTokens: 8192  // Increased to handle pages with many bubbles
             }
         });
 
