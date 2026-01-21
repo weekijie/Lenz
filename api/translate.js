@@ -136,7 +136,7 @@ export default async function handler(req, res) {
 
         // Call Gemini 3 API with multimodal input
         const response = await genAI.models.generateContent({
-            model: 'gemini-2.0-flash',
+            model: 'gemini-1.5-flash',
             contents: [
                 {
                     role: 'user',
