@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -105,6 +106,11 @@
             position: relative;
             display: none;
             margin-top: 20px;
+            /* Use inline-block so container matches image size */
+            width: fit-content;
+            max-width: 100%;
+            margin-left: auto;
+            margin-right: auto;
         }
 
         .image-container.active {
@@ -123,6 +129,11 @@
             left: 0;
             width: 100%;
             height: 100%;
+            pointer-events: none;
+        }
+
+        .bubble-overlay {
+            pointer-events: auto;
         }
 
         .bubble-overlay {
@@ -156,6 +167,7 @@
                 opacity: 0;
                 transform: scale(0.8);
             }
+
             100% {
                 opacity: 1;
                 transform: scale(1);
@@ -273,7 +285,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         .features {
@@ -334,6 +348,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -372,7 +387,8 @@
             <div class="feature">
                 <div class="feature-icon">🎭</div>
                 <h3>Emotion Detection</h3>
-                <p>AI detects speaker emotions and styles text accordingly - shouting, whispering, excited, and more.</p>
+                <p>AI detects speaker emotions and styles text accordingly - shouting, whispering, excited, and more.
+                </p>
             </div>
             <div class="feature">
                 <div class="feature-icon">🔍</div>
@@ -389,7 +405,7 @@
         <footer>
             <p>Built for the <a href="https://gemini3.devpost.com/" target="_blank">Gemini 3 Hackathon</a></p>
             <p style="margin-top: 10px;">
-                <a href="https://github.com/user/manga-lens" target="_blank">GitHub</a> · 
+                <a href="https://github.com/user/manga-lens" target="_blank">GitHub</a> ·
                 <a href="#" target="_blank">Chrome Extension</a>
             </p>
         </footer>
@@ -413,7 +429,7 @@
 
         // Upload zone events
         uploadZone.addEventListener('click', () => fileInput.click());
-        
+
         uploadZone.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadZone.classList.add('dragover');
@@ -518,7 +534,7 @@
 
             } catch (streamError) {
                 console.log('Streaming error, trying regular endpoint:', streamError);
-                
+
                 // Fallback to regular endpoint
                 try {
                     const response = await fetch(`${API_BASE}/api/translate`, {
@@ -535,7 +551,7 @@
                     }
 
                     const result = await response.json();
-                    
+
                     if (result.bubbles && result.bubbles.length > 0) {
                         result.bubbles.forEach(bubble => renderBubble(bubble));
                         showStatus('success', `✅ Translated ${result.bubbles.length} speech bubbles!`);
@@ -552,10 +568,10 @@
 
         function renderBubble(bubble) {
             const [x, y, width, height] = bubble.bbox;
-            
+
             const overlay = document.createElement('div');
             overlay.className = 'bubble-overlay';
-            
+
             // Position as percentage of image
             overlay.style.left = `${x}%`;
             overlay.style.top = `${y}%`;
@@ -602,4 +618,5 @@
         }
     </script>
 </body>
+
 </html>
