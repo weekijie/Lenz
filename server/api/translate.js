@@ -60,22 +60,15 @@ Return a JSON array with this exact structure:
 ]`;
 
 export default async function handler(req, res) {
-    // 1. Manually set CORS headers
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow any origin
-    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
-    res.setHeader(
-        'Access-Control-Allow-Headers',
-        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-    );
+    // Note: CORS headers are handled by vercel.json
 
-    // 2. Handle OPTIONS preflight immediately
+    // Handle OPTIONS preflight immediately
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
     }
 
-    // 3. Only accept POST for actual logic
+    // Only accept POST
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
         return;
