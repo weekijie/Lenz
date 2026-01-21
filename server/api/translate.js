@@ -2,29 +2,8 @@
 // Vercel Serverless Function - Gemini 3 Integration
 
 import { GoogleGenAI } from '@google/genai';
-import cors from 'cors';
 
-// Initialize CORS middleware
-const corsMiddleware = cors({
-    methods: ['POST', 'OPTIONS'],
-    origin: '*', // Allow all origins for the hackathon extension
-    allowedHeaders: ['Content-Type'],
-    credentials: false // Don't need credentials for this
-});
-
-// Helper to run middleware
-function runMiddleware(req, res, fn) {
-    return new Promise((resolve, reject) => {
-        fn(req, res, (result) => {
-            if (result instanceof Error) {
-                return reject(result);
-            }
-            return resolve(result);
-        });
-    });
-}
-
-// Translation prompt template - SAME AS BEFORE
+// Translation prompt template
 const buildPrompt = (context) => `You are a professional manga translator specializing in Japanese to English translation.
 
 **MANGA CONTEXT:**
@@ -81,10 +60,22 @@ Return a JSON array with this exact structure:
 ]`;
 
 export default async function handler(req, res) {
-    // Run CORS middleware first
-    await runMiddleware(req, res, corsMiddleware);
+    // 1. Manually set CORS headers
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Allow any origin
+    res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+    res.setHeader(
+        'Access-Control-Allow-Headers',
+        'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    );
 
-    // Only accept POST
+    // 2. Handle OPTIONS preflight immediately
+    if (req.method === 'OPTIONS') {
+        res.status(200).end();
+        return;
+    }
+
+    // 3. Only accept POST for actual logic
     if (req.method !== 'POST') {
         res.status(405).json({ error: 'Method not allowed' });
         return;
