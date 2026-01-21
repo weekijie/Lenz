@@ -3,9 +3,6 @@
 
 import { GoogleGenAI } from '@google/genai';
 
-// Initialize Gemini client
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 // Translation prompt template
 const buildPrompt = (context) => `You are a professional manga translator specializing in Japanese to English translation.
 
@@ -29,7 +26,7 @@ Analyze the attached manga page image carefully. For each speech bubble or text 
 4. **DETECT EMOTION**: Analyze the speaker's emotion by looking at:
    - Facial expression in the panel
    - Speech bubble style (jagged = shouting, wavy = scared, cloud = thought)
-   - Art effects (speed lines, sweat drops, anger symbols 💢)
+   - Art effects (speed lines, sweat drops, anger symbols)
    - Choose from: neutral, shouting, whispering, excited, sad, angry, scared
 
 5. **IDENTIFY SPEAKER**: If you can determine who is speaking based on:
@@ -63,6 +60,12 @@ Return a JSON array with this exact structure:
 ]`;
 
 export default async function handler(req, res) {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
     // Handle CORS preflight
     if (req.method === 'OPTIONS') {
         res.status(200).end();
@@ -76,6 +79,13 @@ export default async function handler(req, res) {
     }
 
     try {
+        // Check for API key
+        if (!process.env.GEMINI_API_KEY) {
+            console.error('[Manga Lens API] GEMINI_API_KEY not set');
+            res.status(500).json({ error: 'API key not configured' });
+            return;
+        }
+
         const { image, context } = req.body;
 
         if (!image) {
@@ -85,6 +95,9 @@ export default async function handler(req, res) {
 
         console.log('[Manga Lens API] Processing translation request');
         console.log('[Manga Lens API] Context:', context?.title || 'No context');
+
+        // Initialize Gemini client
+        const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
         // Extract base64 data from data URL if needed
         let imageData = image;
@@ -102,35 +115,38 @@ export default async function handler(req, res) {
         const prompt = buildPrompt(context);
 
         // Call Gemini 3 API with multimodal input
-        const model = genAI.getGenerativeModel({
-            model: 'gemini-3-pro',
-            generationConfig: {
-                temperature: 0.3,  // Lower for more consistent translations
+        const response = await genAI.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [
+                {
+                    role: 'user',
+                    parts: [
+                        { text: prompt },
+                        {
+                            inlineData: {
+                                mimeType: mimeType,
+                                data: imageData
+                            }
+                        }
+                    ]
+                }
+            ],
+            config: {
+                temperature: 0.3,
                 topP: 0.8,
                 maxOutputTokens: 4096
             }
         });
 
-        const result = await model.generateContent([
-            prompt,
-            {
-                inlineData: {
-                    mimeType: mimeType,
-                    data: imageData
-                }
-            }
-        ]);
+        const text = response.text;
 
-        const response = await result.response;
-        const text = response.text();
-
-        console.log('[Manga Lens API] Raw response:', text.substring(0, 200));
+        console.log('[Manga Lens API] Raw response:', text?.substring(0, 200));
 
         // Parse the JSON response
         let bubbles;
         try {
             // Try to extract JSON from the response (handle potential markdown wrapping)
-            let jsonText = text.trim();
+            let jsonText = (text || '').trim();
 
             // Remove markdown code blocks if present
             if (jsonText.startsWith('```')) {
