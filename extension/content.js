@@ -87,14 +87,29 @@
         }
     }
 
+    // Show loading indicator
+    function showLoading() {
+        hideLoading(); // Remove any existing
+        const loader = document.createElement('div');
+        loader.className = 'manga-lens-loading';
+        loader.id = 'manga-lens-loader';
+        loader.innerHTML = '<div class="manga-lens-loading-spinner"></div><span>Translating...</span>';
+        document.body.appendChild(loader);
+    }
+
+    function hideLoading() {
+        document.getElementById('manga-lens-loader')?.remove();
+    }
+
     // Main translation function
-    async function translatePage(settings) {
+    async function translatePage(settings, retryCount = 0) {
         if (isTranslating) {
             return { success: false, error: 'Translation in progress' };
         }
 
         isTranslating = true;
         clearOverlays();
+        showLoading();
 
         try {
             // Step 1: Capture the manga canvas/image
@@ -120,8 +135,18 @@
             });
 
             if (!response.ok) {
-                const error = await response.text();
-                throw new Error(`API error: ${error}`);
+                const errorText = await response.text();
+
+                // Auto-retry on 503 (overloaded) errors
+                if (response.status === 503 && retryCount < 2) {
+                    console.log(`[Manga Lens] Model overloaded, retrying in 5s... (attempt ${retryCount + 1})`);
+                    hideLoading();
+                    isTranslating = false;
+                    await new Promise(r => setTimeout(r, 5000));
+                    return translatePage(settings, retryCount + 1);
+                }
+
+                throw new Error(`API error: ${errorText}`);
             }
 
             const result = await response.json();
@@ -140,6 +165,7 @@
             throw error;
         } finally {
             isTranslating = false;
+            hideLoading();
         }
     }
 
@@ -208,6 +234,33 @@
         return targetCanvas;
     }
 
+    // Resize image for faster API processing
+    function resizeImageForAPI(dataUrl, maxWidth = 1200) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                // Only resize if larger than maxWidth
+                if (img.width <= maxWidth) {
+                    resolve(dataUrl);
+                    return;
+                }
+
+                const canvas = document.createElement('canvas');
+                const ratio = maxWidth / img.width;
+                canvas.width = maxWidth;
+                canvas.height = img.height * ratio;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                const resized = canvas.toDataURL('image/jpeg', 0.8);
+                console.log(`[Manga Lens] Resized image: ${img.width}x${img.height} → ${canvas.width}x${canvas.height}`);
+                resolve(resized);
+            };
+            img.src = dataUrl;
+        });
+    }
+
     // Capture the manga page image
     async function capturePageImage() {
         const targetCanvas = findTargetCanvas();
@@ -216,8 +269,9 @@
             try {
                 // Try to get canvas data directly
                 const dataUrl = targetCanvas.toDataURL('image/jpeg', 0.85);
+                const resized = await resizeImageForAPI(dataUrl);
                 return {
-                    imageData: dataUrl,
+                    imageData: resized,
                     type: 'canvas',
                     element: targetCanvas
                 };
@@ -237,10 +291,12 @@
                 vh: window.innerHeight
             };
 
-            chrome.runtime.sendMessage({ action: 'captureTab' }, response => {
+            chrome.runtime.sendMessage({ action: 'captureTab' }, async (response) => {
                 if (response?.imageData) {
+                    // Resize tab capture for faster processing
+                    const resized = await resizeImageForAPI(response.imageData);
                     resolve({
-                        imageData: response.imageData,
+                        imageData: resized,
                         type: 'tab',
                         meta: meta
                     });
@@ -276,13 +332,22 @@
 
         const containerRect = container.getBoundingClientRect();
 
+        // Batch all DOM insertions using DocumentFragment for better performance
+        const fragment = document.createDocumentFragment();
+        const newOverlays = [];
+
         bubbles.forEach((bubble, index) => {
             const overlay = createOverlay(bubble, container, style, index, captureResult);
-            container.appendChild(overlay);
-            translationOverlays.push(overlay);
+            fragment.appendChild(overlay);  // Appends to in-memory fragment (no reflow)
+            newOverlays.push(overlay);
         });
 
-        console.log('[Manga Lens] Rendered', bubbles.length, 'overlays');
+        // Single DOM write triggers one reflow, scheduled at optimal render time
+        requestAnimationFrame(() => {
+            container.appendChild(fragment);
+            translationOverlays.push(...newOverlays);
+            console.log('[Manga Lens] Rendered', bubbles.length, 'overlays');
+        });
     }
 
     // Find the manga content container
@@ -384,10 +449,19 @@
 
         const popup = document.createElement('div');
         popup.className = 'manga-lens-note-popup';
-        popup.innerHTML = `
-      <div class="manga-lens-note-header">📚 Cultural Note</div>
-      <div class="manga-lens-note-content">${note}</div>
-    `;
+
+        // Create header (safe DOM construction)
+        const header = document.createElement('div');
+        header.className = 'manga-lens-note-header';
+        header.textContent = '📚 Cultural Note';
+
+        // Create content (safe - uses textContent to prevent XSS)
+        const content = document.createElement('div');
+        content.className = 'manga-lens-note-content';
+        content.textContent = note;
+
+        popup.appendChild(header);
+        popup.appendChild(content);
 
         // Position near the button
         const rect = anchor.getBoundingClientRect();

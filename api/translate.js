@@ -134,9 +134,10 @@ export default async function handler(req, res) {
         // Build the prompt with context
         const prompt = buildPrompt(context);
 
-        // Call Gemini 3 API with multimodal input
+        // Call Gemini API with multimodal input
+        // Using the @google/genai SDK v1.x pattern
         const response = await genAI.models.generateContent({
-            model: 'gemini-3-flash-preview',
+            model: 'gemini-2.5-flash',
             contents: [
                 {
                     role: 'user',
@@ -154,29 +155,52 @@ export default async function handler(req, res) {
             config: {
                 temperature: 0.3,
                 topP: 0.8,
-                maxOutputTokens: 8192  // Increased to handle pages with many bubbles
+                maxOutputTokens: 16384  // Increased to handle pages with many bubbles
             }
         });
 
-        // Extract text from response - handle different SDK response structures
+        // Extract text from response - @google/genai SDK v1.x
         let text;
         try {
-            // Try different response structures (SDK versions vary)
-            text = response.text
-                || response?.candidates?.[0]?.content?.parts?.[0]?.text
-                || response?.response?.text?.()
-                || (typeof response?.text === 'function' ? response.text() : null);
+            // The SDK v1.x returns response with different structures depending on version
+            // Try multiple access patterns
+            if (typeof response.text === 'string') {
+                text = response.text;
+            } else if (typeof response.text === 'function') {
+                text = response.text();
+            } else if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
+                text = response.candidates[0].content.parts[0].text;
+            } else if (response.response?.candidates?.[0]?.content?.parts?.[0]?.text) {
+                text = response.response.candidates[0].content.parts[0].text;
+            } else {
+                // Log full structure for debugging (truncated)
+                const responseStr = JSON.stringify(response, null, 2);
+                console.log('[Manga Lens API] Response structure:', responseStr.substring(0, 1000));
+                
+                // Try to find text in the response object recursively
+                const findText = (obj, depth = 0) => {
+                    if (depth > 5 || !obj) return null;
+                    if (typeof obj === 'string' && obj.startsWith('[')) return obj;
+                    if (typeof obj !== 'object') return null;
+                    for (const key of Object.keys(obj)) {
+                        if (key === 'text' && typeof obj[key] === 'string') return obj[key];
+                        const found = findText(obj[key], depth + 1);
+                        if (found) return found;
+                    }
+                    return null;
+                };
+                text = findText(response);
+            }
 
-            // If still undefined, log the full response structure for debugging
-            if (text === undefined || text === null) {
-                console.log('[Manga Lens API] Response structure:', JSON.stringify(response, null, 2).substring(0, 500));
+            if (!text) {
+                console.error('[Manga Lens API] Could not extract text from response');
             }
         } catch (extractError) {
             console.error('[Manga Lens API] Error extracting text:', extractError);
             text = null;
         }
 
-        console.log('[Manga Lens API] Raw response:', text?.substring?.(0, 200));
+        console.log('[Manga Lens API] Raw response:', text?.substring?.(0, 300));
 
         // Parse the JSON response
         let bubbles;
@@ -189,20 +213,33 @@ export default async function handler(req, res) {
                 jsonText = jsonText.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
             }
 
+            // Try parsing directly first
             try {
                 bubbles = JSON.parse(jsonText);
             } catch (e) {
-                // Return what we have if the JSON is truncated but contains some valid data
+                // Attempt to repair truncated JSON
+                console.log('[Manga Lens API] Initial parse failed, attempting repair...');
+                
                 if (jsonText.startsWith('[')) {
-                    const lastObjectEnd = jsonText.lastIndexOf('}');
-                    if (lastObjectEnd !== -1) {
+                    // Strategy 1: Find last complete object and close array
+                    const lastCompleteObject = findLastCompleteObject(jsonText);
+                    if (lastCompleteObject) {
                         try {
-                            const repairedJson = jsonText.substring(0, lastObjectEnd + 1) + ']';
-                            console.log('[Manga Lens API] Attempting to repair truncated JSON...');
-                            bubbles = JSON.parse(repairedJson);
-                            console.log('[Manga Lens API] successfully repaired JSON');
+                            bubbles = JSON.parse(lastCompleteObject);
+                            console.log('[Manga Lens API] Repaired JSON (strategy 1): found', bubbles.length, 'complete bubbles');
                         } catch (repairError) {
-                            throw e; // Throw original error if repair fails
+                            // Strategy 2: Try to find any valid JSON array
+                            const match = jsonText.match(/\[[\s\S]*?\}/);
+                            if (match) {
+                                try {
+                                    bubbles = JSON.parse(match[0] + ']');
+                                    console.log('[Manga Lens API] Repaired JSON (strategy 2): found', bubbles.length, 'bubbles');
+                                } catch {
+                                    throw e; // Throw original error
+                                }
+                            } else {
+                                throw e;
+                            }
                         }
                     } else {
                         throw e;
@@ -229,7 +266,7 @@ export default async function handler(req, res) {
 
         } catch (parseError) {
             console.error('[Manga Lens API] Failed to parse response:', parseError);
-            console.error('[Manga Lens API] Raw text:', text);
+            console.error('[Manga Lens API] Raw text:', text?.substring?.(0, 500) || 'null');
 
             // Return empty bubbles on parse error
             bubbles = [];
@@ -251,4 +288,50 @@ export default async function handler(req, res) {
             details: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
+}
+
+// Helper function to find the last complete JSON object in a truncated array
+function findLastCompleteObject(jsonText) {
+    // Count brackets to find where valid objects end
+    let depth = 0;
+    let inString = false;
+    let escapeNext = false;
+    let lastValidEnd = -1;
+    
+    for (let i = 0; i < jsonText.length; i++) {
+        const char = jsonText[i];
+        
+        if (escapeNext) {
+            escapeNext = false;
+            continue;
+        }
+        
+        if (char === '\\' && inString) {
+            escapeNext = true;
+            continue;
+        }
+        
+        if (char === '"') {
+            inString = !inString;
+            continue;
+        }
+        
+        if (inString) continue;
+        
+        if (char === '[' || char === '{') {
+            depth++;
+        } else if (char === ']' || char === '}') {
+            depth--;
+            // If we're back to depth 1 (inside the main array) after closing an object
+            if (depth === 1 && char === '}') {
+                lastValidEnd = i;
+            }
+        }
+    }
+    
+    if (lastValidEnd > 0) {
+        return jsonText.substring(0, lastValidEnd + 1) + ']';
+    }
+    
+    return null;
 }
