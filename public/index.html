@@ -423,7 +423,9 @@
         <div class="demo-area">
             <div class="disclaimer">
                 <span class="disclaimer-icon">&#9888;</span>
-                <strong>Free Tier Notice:</strong> This demo uses Gemini API's free tier with limited quota. You may experience rate limits during high traffic. For unlimited usage, consider self-hosting with your own API key.
+                <strong>Free Tier Notice:</strong> This demo uses Gemini API's free tier with limited quota. You may
+                experience rate limits during high traffic. For unlimited usage, consider self-hosting with your own API
+                key.
             </div>
 
             <div class="upload-zone" id="uploadZone">
@@ -481,8 +483,7 @@
         <footer>
             <p>Built for the <a href="https://gemini3.devpost.com/" target="_blank">Gemini 3 Hackathon</a></p>
             <p style="margin-top: 10px;">
-                <a href="https://github.com/weekijie/Lenz" target="_blank">GitHub</a> ·
-                <a href="#" target="_blank">Chrome Extension</a>
+                <a href="https://github.com/weekijie/Lenz" target="_blank">GitHub</a>
             </p>
         </footer>
     </div>
@@ -674,7 +675,7 @@
         function handleApiError(statusCode, errorData) {
             const code = errorData.code || '';
             const message = errorData.message || errorData.error || 'An error occurred';
-            
+
             if (statusCode === 429 || code === 'RATE_LIMIT') {
                 showStatus('warning', `
                     <strong>&#9888; Rate Limit Exceeded</strong>

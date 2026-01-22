@@ -4,7 +4,8 @@
 .manga-lens-overlay {
     position: absolute;
     z-index: 10000;
-    contain: layout style paint; /* Performance: isolate each bubble */
+    contain: layout style paint;
+    /* Performance: isolate each bubble */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -17,7 +18,8 @@
 }
 
 .manga-lens-overlay:hover {
-    z-index: 10001; /* Raise above other bubbles when hovered */
+    z-index: 10001;
+    /* Raise above other bubbles when hovered */
     transform: scale(1.02);
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     transition: transform 0.2s ease, box-shadow 0.2s ease, z-index 0s;
@@ -58,6 +60,8 @@
     color: #1a1a2e;
     text-align: center;
     word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
     max-width: 100%;
 }
 
@@ -240,6 +244,7 @@
         opacity: 0;
         transform: translateX(-50%) translateY(-20px);
     }
+
     to {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
