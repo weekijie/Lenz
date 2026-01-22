@@ -7,7 +7,6 @@
     // State
     let mangaContext = null;
     let translationOverlays = [];
-    let autoMode = false;
     let isTranslating = false;
 
     // Initialize when DOM is ready
@@ -71,11 +70,7 @@
                     .catch(error => sendResponse({ success: false, error: error.message }));
                 return true; // Keep channel open for async response
 
-            case 'setAutoMode':
-                autoMode = request.enabled;
-                console.log('[Lenz] Auto mode:', autoMode);
-                sendResponse({ success: true });
-                break;
+
 
             case 'clearOverlays':
                 clearOverlays();
@@ -105,12 +100,12 @@
     function showErrorToast(type, title, message, autoClose = true) {
         // Remove any existing toast
         document.querySelector('.manga-lens-error-toast')?.remove();
-        
+
         const toast = document.createElement('div');
         toast.className = `manga-lens-error-toast ${type}`;
-        
+
         const icon = type === 'warning' ? '&#9888;' : '&#10060;';
-        
+
         toast.innerHTML = `
             <button class="manga-lens-error-close">&times;</button>
             <div class="manga-lens-error-header">
@@ -119,14 +114,14 @@
             </div>
             <div class="manga-lens-error-message">${message}</div>
         `;
-        
+
         document.body.appendChild(toast);
-        
+
         // Close button handler
         toast.querySelector('.manga-lens-error-close').addEventListener('click', () => {
             toast.remove();
         });
-        
+
         // Auto-close after 8 seconds
         if (autoClose) {
             setTimeout(() => {
@@ -139,7 +134,7 @@
     function handleApiError(statusCode, errorData) {
         const code = errorData?.code || '';
         const message = errorData?.message || errorData?.error || 'An error occurred';
-        
+
         if (statusCode === 429 || code === 'RATE_LIMIT') {
             showErrorToast(
                 'warning',
@@ -188,7 +183,7 @@
 
             // Step 2: Send to backend for translation (try streaming first)
             const baseUrl = settings.backendUrl.replace(/\/+$/, '');
-            
+
             // Try streaming endpoint first for progressive rendering
             try {
                 const result = await translateWithStreaming(baseUrl, captureResult, settings);
@@ -268,14 +263,14 @@
                             if (line.startsWith('data: ')) {
                                 try {
                                     const data = JSON.parse(line.slice(6));
-                                    
+
                                     if (data.type === 'bubble') {
                                         // Render bubble immediately
                                         const overlay = createOverlay(
-                                            data.bubble, 
-                                            container, 
-                                            settings.overlayStyle, 
-                                            bubbleCount, 
+                                            data.bubble,
+                                            container,
+                                            settings.overlayStyle,
+                                            bubbleCount,
                                             captureResult
                                         );
                                         container.appendChild(overlay);
@@ -674,11 +669,10 @@
         document.querySelectorAll('.manga-lens-note-popup').forEach(el => el.remove());
     }
 
-    // Watch for page navigation (chapter changes only)
-    // NOTE: Auto-translate on page turn is disabled for now.
-    // Users should click "Translate" button manually per page.
+    // Watch for page navigation (URL changes and canvas content changes)
+    // Auto-clears overlays when user turns to a new manga page
     function observePageChanges() {
-        console.log('[Lenz] Starting page observation (URL changes only)...');
+        console.log('[Lenz] Starting page observation...');
 
         // URL Observer (for chapter changes)
         let lastUrl = window.location.href;
@@ -691,6 +685,47 @@
             }
         });
         urlObserver.observe(document.body, { childList: true, subtree: true });
+
+        // Canvas content observer (for page turns within same chapter)
+        // Detects when manga page content changes without URL change
+        let lastCanvasSignature = null;
+        let checkInterval = null;
+
+        function getCanvasSignature(canvas) {
+            if (!canvas) return null;
+            try {
+                // Sample a small portion of the canvas for fast comparison
+                // Use low quality to minimize computation
+                return canvas.toDataURL('image/jpeg', 0.1).slice(0, 200);
+            } catch (e) {
+                // Canvas may be tainted by cross-origin content
+                return null;
+            }
+        }
+
+        function checkForPageTurn() {
+            const canvas = findTargetCanvas();
+            if (!canvas) return;
+
+            const currentSignature = getCanvasSignature(canvas);
+            if (!currentSignature) return;
+
+            // If we have a previous signature and it changed, page turned
+            if (lastCanvasSignature && currentSignature !== lastCanvasSignature) {
+                console.log('[Lenz] Page turn detected, clearing overlays');
+                clearOverlays();
+            }
+
+            lastCanvasSignature = currentSignature;
+        }
+
+        // Start checking for page turns (every 500ms - lightweight)
+        checkInterval = setInterval(checkForPageTurn, 500);
+
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            if (checkInterval) clearInterval(checkInterval);
+        });
     }
 
 })();
