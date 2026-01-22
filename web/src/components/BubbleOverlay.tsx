@@ -39,11 +39,10 @@ export function BubbleOverlay({ bubble }: BubbleOverlayProps) {
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             className={cn(
-                "pointer-events-auto z-10",
-                "absolute flex flex-col items-center justify-center border-2 border-gray-900 bg-white/95 text-center shadow-lg transition-all duration-200",
-                "hover:z-[100] hover:scale-105 hover:shadow-xl",
-                "rounded-xl p-2", // Changed from rounded-[50%] to rounded-xl for better text fit
-                showNote && "z-[100]" // Keep on top if note is showing
+                "absolute flex flex-col items-center justify-center border-2 border-gray-900 bg-white/95 text-center shadow-lg",
+                "hover:scale-105 hover:shadow-xl hover:z-[100]",
+                "rounded-xl p-2",
+                showNote ? "z-[100]" : "z-10"
             )}
             style={{
                 left: `${x}%`,
@@ -51,6 +50,8 @@ export function BubbleOverlay({ bubble }: BubbleOverlayProps) {
                 width: `${width}%`,
                 minHeight: `${height}%`,
                 boxShadow: "0 2px 8px rgba(0, 0, 0, 0.2)",
+                pointerEvents: 'auto',
+                transition: "transform 0.2s ease, box-shadow 0.2s ease, z-index 0s"
             }}
         >
             {bubble.speaker && bubble.speaker !== 'unknown' && (
