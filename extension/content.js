@@ -618,7 +618,51 @@
             overlay.insertBefore(speakerEl, textEl);
         }
 
+        // Make overlay draggable
+        makeDraggable(overlay);
+
         return overlay;
+    }
+
+    // Make an element draggable
+    function makeDraggable(element) {
+        let isDragging = false;
+        let startX, startY, initialLeft, initialTop;
+
+        element.addEventListener('mousedown', (e) => {
+            // Don't drag if clicking on a button (like cultural note)
+            if (e.target.tagName === 'BUTTON') return;
+
+            isDragging = true;
+            element.classList.add('dragging');
+
+            startX = e.clientX;
+            startY = e.clientY;
+
+            // Get current position
+            const style = window.getComputedStyle(element);
+            initialLeft = parseFloat(style.left) || 0;
+            initialTop = parseFloat(style.top) || 0;
+
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+
+            element.style.left = `${initialLeft + deltaX}px`;
+            element.style.top = `${initialTop + deltaY}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+                element.classList.remove('dragging');
+            }
+        });
     }
 
 

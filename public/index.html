@@ -133,15 +133,13 @@
         }
 
         .bubble-overlay {
-            pointer-events: auto;
-        }
-
-        .bubble-overlay {
             position: absolute;
-            background: rgba(255, 255, 255, 0.95);
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
             border: 2px solid #333;
-            border-radius: 8px;
-            padding: 8px 10px;
+            border-radius: 12px;
+            padding: 6px 8px;
             font-family: 'Comic Sans MS', 'Segoe UI', system-ui, sans-serif;
             font-size: 12px;
             color: #1a1a2e;
@@ -150,16 +148,27 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
             animation: bubblePop 0.3s ease-out;
             z-index: 10;
-            transition: transform 0.2s ease, box-shadow 0.2s ease, z-index 0s;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            cursor: grab;
+            user-select: none;
+            pointer-events: auto;
         }
 
         .bubble-overlay:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            transform: scale(1.02);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
             z-index: 100;
+        }
+
+        .bubble-overlay.dragging {
+            cursor: grabbing;
+            transform: scale(0.98);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+            z-index: 1000;
+            opacity: 0.95;
         }
 
         @keyframes bubblePop {
@@ -769,7 +778,50 @@
                 overlay.appendChild(noteBtn);
             }
 
+            // Make bubble draggable
+            makeDraggable(overlay);
+
             overlayContainer.appendChild(overlay);
+        }
+
+        function makeDraggable(element) {
+            let isDragging = false;
+            let startX, startY, initialLeft, initialTop;
+
+            element.addEventListener('mousedown', (e) => {
+                // Don't drag if clicking on cultural note button
+                if (e.target.classList.contains('cultural-note-btn')) return;
+
+                isDragging = true;
+                element.classList.add('dragging');
+
+                startX = e.clientX;
+                startY = e.clientY;
+
+                // Get current position
+                const style = window.getComputedStyle(element);
+                initialLeft = parseFloat(style.left) || 0;
+                initialTop = parseFloat(style.top) || 0;
+
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+
+                element.style.left = `${initialLeft + deltaX}px`;
+                element.style.top = `${initialTop + deltaY}px`;
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    element.classList.remove('dragging');
+                }
+            });
         }
 
         function clearAll() {
