@@ -9,7 +9,7 @@ interface MangaViewerProps {
 
 export function MangaViewer({ imageSrc, bubbles }: MangaViewerProps) {
     return (
-        <div className="relative mx-auto w-fit max-w-full overflow-hidden rounded-lg shadow-2xl">
+        <div className="relative mx-auto w-fit max-w-full rounded-lg shadow-2xl">
             <img
                 src={imageSrc}
                 alt="Manga page"

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Sparkles, Zap, Trash2, Github, ExternalLink } from 'lucide-react';
+import { Sparkles, Zap, Trash2, Github } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { UploadZone } from '@/components/UploadZone';
@@ -235,9 +235,6 @@ function App() {
           <div className="flex justify-center gap-6 mb-8">
             <a href="https://github.com/weekijie/Lenz" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors flex items-center gap-2">
               <Github className="h-4 w-4" /> GitHub
-            </a>
-            <a href="#" className="hover:text-primary transition-colors flex items-center gap-2">
-              <ExternalLink className="h-4 w-4" /> Chrome Extension
             </a>
           </div>
           <p>© 2026 Lenz. Built for the Gemini 3 Hackathon.</p>

@@ -38,7 +38,12 @@ export function BubbleOverlay({ bubble }: BubbleOverlayProps) {
         <motion.div
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="absolute flex flex-col items-center justify-center border-2 border-gray-900 bg-white/95 text-center shadow-lg transition-all hover:z-50 hover:scale-105 hover:shadow-xl rounded-[50%] p-2"
+            className={cn(
+                "absolute flex flex-col items-center justify-center border-2 border-gray-900 bg-white/95 text-center shadow-lg transition-all",
+                "hover:z-[100] hover:scale-105 hover:shadow-xl",
+                "rounded-xl p-2", // Changed from rounded-[50%] to rounded-xl for better text fit
+                showNote && "z-[100]" // Keep on top if note is showing
+            )}
             style={{
                 left: `${x}%`,
                 top: `${y}%`,
@@ -48,36 +53,43 @@ export function BubbleOverlay({ bubble }: BubbleOverlayProps) {
             }}
         >
             {bubble.speaker && bubble.speaker !== 'unknown' && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary backdrop-blur-sm">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary backdrop-blur-sm border border-primary/20">
                     {bubble.speaker}
                 </span>
             )}
 
-            <p className={cn("select-text text-[clamp(8px,1.5cqw,16px)] leading-tight", style)}>
+            <p className={cn("select-text text-sm leading-tight break-words w-full", style)}>
                 {bubble.english}
             </p>
 
             {bubble.culturalNote && (
-                <div className="absolute -right-2 -top-2">
+                <div className="absolute -right-3 -top-3 z-50">
                     <button
-                        className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-white shadow-md ring-2 ring-white transition-transform hover:scale-110"
+                        className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500 text-white shadow-md ring-2 ring-white transition-transform hover:scale-110 active:scale-95 cursor-pointer"
+                        title="View Cultural Note"
                         onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
-                            setShowNote(!showNote)
+                            setShowNote(prev => !prev);
                         }}
+                        onMouseDown={(e) => e.stopPropagation()} // Prevent drag/other events
                     >
-                        <HelpCircle className="h-3 w-3" />
+                        <HelpCircle className="h-3.5 w-3.5" />
                     </button>
                     <AnimatePresence>
                         {showNote && (
                             <motion.div
-                                initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                                initial={{ opacity: 0, y: 5, scale: 0.95 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                                className="absolute right-0 top-6 z-50 w-48 rounded-lg border border-border bg-popover p-3 text-xs text-popover-foreground shadow-xl"
+                                exit={{ opacity: 0, y: 5, scale: 0.95 }}
+                                className="absolute left-full top-0 ml-2 w-64 rounded-lg border border-border/50 bg-slate-900/95 p-4 text-xs text-slate-100 shadow-2xl backdrop-blur-xl z-[200]"
+                                onClick={(e) => e.stopPropagation()}
                             >
-                                <h4 className="mb-1 font-semibold text-primary">Cultural Note</h4>
-                                {bubble.culturalNote}
+                                <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
+                                    <HelpCircle className="h-3 w-3 text-indigo-400" />
+                                    <h4 className="font-semibold text-indigo-300">Cultural Context</h4>
+                                </div>
+                                <p className="leading-relaxed opacity-90">{bubble.culturalNote}</p>
                             </motion.div>
                         )}
                     </AnimatePresence>
