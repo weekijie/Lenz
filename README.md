@@ -204,9 +204,26 @@ All dependencies are used in accordance with their respective licenses.
 
 ---
 
-## Self-Hosting
+## Backend Options
 
-### 1. Deploy Backend to Vercel
+### Option 1: Use Hosted Backend (Quick Start)
+
+The extension comes pre-configured to use the hosted backend:
+
+```
+https://lenz-iota.vercel.app
+```
+
+> [!NOTE]
+> **Free Tier Limits Apply** - The hosted backend uses Gemini API's free tier with limited quota. You may experience rate limits (HTTP 429) during high traffic. If you need unlimited usage, self-host with your own API key.
+
+---
+
+### Option 2: Self-Host Your Own Backend
+
+For unlimited usage or custom modifications:
+
+#### 1. Deploy Backend to Vercel
 
 ```bash
 # Clone the repo
@@ -220,7 +237,7 @@ npm install
 vercel --prod
 ```
 
-### 2. Set Environment Variable
+#### 2. Set Environment Variable
 
 In your Vercel dashboard, add:
 ```
@@ -229,7 +246,7 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 Get your API key at: https://aistudio.google.com/apikey
 
-### 3. Update Extension Backend URL
+#### 3. Update Extension Backend URL
 
 1. Open the extension popup
 2. Go to Settings

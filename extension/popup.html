@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Lenz</title>
   <link rel="stylesheet" href="popup.css">
 </head>
+
 <body>
   <div class="container">
     <header class="header">
@@ -20,7 +22,8 @@
       <!-- Free Tier Disclaimer -->
       <div class="disclaimer" id="disclaimer">
         <span class="disclaimer-icon">&#9888;</span>
-        <span class="disclaimer-text"><strong>Free Tier:</strong> Rate limits may apply. Wait a moment if errors occur.</span>
+        <span class="disclaimer-text"><strong>Free Tier:</strong> Rate limits may apply. Wait a moment if errors
+          occur.</span>
       </div>
 
       <!-- Status Section -->
@@ -54,14 +57,7 @@
         <span class="mode-hint" id="modeHint">Fast (~5s)</span>
       </div>
 
-      <!-- Auto Mode Toggle -->
-      <div class="mode-toggle">
-        <label class="toggle-label">
-          <input type="checkbox" id="autoMode" />
-          <span class="toggle-slider"></span>
-          <span class="toggle-text">Auto-translate on page turn</span>
-        </label>
-      </div>
+
 
       <!-- Settings Section -->
       <details class="settings-section">
@@ -71,7 +67,8 @@
         <div class="settings-content">
           <div class="setting-item">
             <label for="backendUrl">Backend URL</label>
-            <input type="text" id="backendUrl" placeholder="https://your-backend.vercel.app" />
+            <input type="text" id="backendUrl" placeholder="https://lenz-iota.vercel.app" />
+            <small class="setting-hint">Default: hosted backend (free tier limits apply)</small>
           </div>
           <div class="setting-item">
             <label>Overlay Style</label>
@@ -94,4 +91,5 @@
 
   <script src="popup.js"></script>
 </body>
+
 </html>

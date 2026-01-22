@@ -412,3 +412,10 @@ body {
 .mode-hint.quality {
   color: var(--accent);
 }
+
+/* Setting hint text */
+.setting-hint {
+  font-size: 10px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}

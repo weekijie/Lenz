@@ -1,5 +1,8 @@
 // Lenz Popup Script
 
+// Default hosted backend (free tier limits apply)
+const DEFAULT_BACKEND_URL = 'https://lenz-iota.vercel.app';
+
 document.addEventListener('DOMContentLoaded', async () => {
   // DOM Elements
   const translateBtn = document.getElementById('translateBtn');
@@ -8,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const contextCard = document.getElementById('contextCard');
   const mangaTitle = document.getElementById('mangaTitle');
   const mangaTags = document.getElementById('mangaTags');
-  const autoMode = document.getElementById('autoMode');
   const qualityMode = document.getElementById('qualityMode');
   const modeHint = document.getElementById('modeHint');
   const backendUrl = document.getElementById('backendUrl');
@@ -22,10 +24,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     'autoMode',
     'qualityMode'
   ]);
-  
+
   if (settings.backendUrl) backendUrl.value = settings.backendUrl;
   if (settings.overlayStyle) overlayStyle.value = settings.overlayStyle;
-  if (settings.autoMode) autoMode.checked = settings.autoMode;
   if (settings.qualityMode) {
     qualityMode.checked = settings.qualityMode;
     updateModeHint(true);
@@ -49,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Check if we're on a manga page and get context
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  
+
   if (tab.url?.includes('comic-walker.com')) {
     // Get manga context from content script
     try {
@@ -60,7 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) {
       console.log('Content script not ready or no context available');
     }
-    
+
     setStatus('ready', 'Ready to translate');
   } else {
     setStatus('error', 'Please open a manga on Comic Walker');
@@ -69,10 +70,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Translate button click
   translateBtn.addEventListener('click', async () => {
-    if (!settings.backendUrl && !backendUrl.value) {
-      setStatus('error', 'Please set backend URL in settings');
-      return;
-    }
+    // Use custom URL if set, otherwise use default hosted backend
+    const activeBackendUrl = backendUrl.value || settings.backendUrl || DEFAULT_BACKEND_URL;
 
     const modeLabel = qualityMode.checked ? 'Quality Mode' : 'Fast Mode';
     setStatus('loading', `Capturing page (${modeLabel})...`);
@@ -81,10 +80,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       // Send translate message to content script
-      const response = await chrome.tabs.sendMessage(tab.id, { 
+      const response = await chrome.tabs.sendMessage(tab.id, {
         action: 'translatePage',
         settings: {
-          backendUrl: backendUrl.value || settings.backendUrl,
+          backendUrl: activeBackendUrl,
           overlayStyle: overlayStyle.value || settings.overlayStyle || 'solid',
           qualityMode: qualityMode.checked
         }
@@ -109,10 +108,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.storage.local.set({
       backendUrl: backendUrl.value,
       overlayStyle: overlayStyle.value,
-      autoMode: autoMode.checked,
       qualityMode: qualityMode.checked
     });
-    
+
     // Flash button to confirm
     saveSettings.textContent = 'Saved!';
     setTimeout(() => {
@@ -120,16 +118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 1500);
   });
 
-  // Auto mode toggle
-  autoMode.addEventListener('change', async () => {
-    await chrome.storage.local.set({ autoMode: autoMode.checked });
-    
-    // Notify content script
-    chrome.tabs.sendMessage(tab.id, { 
-      action: 'setAutoMode', 
-      enabled: autoMode.checked 
-    });
-  });
+
 
   // Helper functions
   function setStatus(type, message) {
@@ -142,7 +131,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   function showMangaContext(context) {
     contextCard.classList.remove('hidden');
     mangaTitle.textContent = context.title || 'Unknown Manga';
-    
+
     mangaTags.innerHTML = '';
     (context.tags || []).slice(0, 4).forEach(tag => {
       const tagEl = document.createElement('span');
