@@ -32,6 +32,9 @@ export default {
                 md: "calc(var(--radius) - 2px)",
                 sm: "calc(var(--radius) - 4px)",
             },
+            fontFamily: {
+                comic: ['"Comic Sans MS"', '"Segoe UI"', 'system-ui', 'sans-serif'],
+            },
         },
     },
     plugins: [],
