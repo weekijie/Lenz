@@ -6,8 +6,7 @@ Lenz translates Japanese manga pages in real-time using Google's Gemini 3 multim
 
 ## Demo Video
 
-<!-- TODO: Add YouTube link before submission -->
-[Watch Demo on YouTube](https://youtube.com/your-video-link)
+[Watch Demo on YouTube](https://youtu.be/E0tIR11XZP0)
 
 ## Try It Now!
 
@@ -26,8 +25,6 @@ The extension was built with [Comic Walker](https://comic-walker.com/) in mind -
 5. **Done!** Visit [Comic Walker](https://comic-walker.com/), open any manga, and click the Lenz icon to translate
 
 <!-- TODO: Add demo.gif showing the extension in action -->
-![Demo](demo.gif)
-
 ---
 
 ## Features
