@@ -296,14 +296,19 @@ The app displays specific error messages for each limit type so you know whether
 
 ## API Security (CORS)
 
-To prevent API key exploitation, the backend restricts requests to specific origins only:
+The backend **strictly restricts** API access to browser requests from whitelisted domains only:
 
 | Allowed Origin | Purpose |
 |----------------|---------|
-| `https://lenz-iota.vercel.app` | Main web demo |
-| `https://comic-walker.com` | Chrome extension on Comic Walker |
+| `https://lenz-iota.vercel.app` | Web demo |
+| `https://comic-walker.com` | Chrome extension |
 
-Requests from other origins will be rejected. If you self-host, update the `allowedOrigins` array in `api/translate.js` and `api/translate-stream.js` to include your domains.
+**Blocked:**
+- ❌ curl / Postman requests
+- ❌ Server-side code (Node.js, Python, etc.)
+- ❌ Other websites
+
+Requests without an `Origin` header or from non-whitelisted domains receive **403 Forbidden**. If you self-host, update the `allowedOrigins` array in `api/translate.js` and `api/translate-stream.js`.
 
 ---
 
