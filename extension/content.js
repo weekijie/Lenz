@@ -134,7 +134,15 @@
         const code = errorData?.code || '';
         const message = errorData?.message || errorData?.error || 'An error occurred';
 
-        if (statusCode === 429 || code === 'RATE_LIMIT') {
+        // Daily quota exhausted (20 requests per day)
+        if (code === 'RATE_LIMIT_RPD') {
+            showErrorToast(
+                'error',
+                'Daily Quota Exhausted',
+                `${message}<br><br><strong>Tip:</strong> The free tier allows 20 requests per day. Try again tomorrow, or self-host with your own API key.`
+            );
+            // Per-minute rate limit
+        } else if (statusCode === 429 || code === 'RATE_LIMIT_RPM' || code === 'RATE_LIMIT') {
             showErrorToast(
                 'warning',
                 'Rate Limit Exceeded',

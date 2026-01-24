@@ -5,10 +5,10 @@
     ],
     "functions": {
         "api/translate.js": {
-            "maxDuration": 90
+            "maxDuration": 120
         },
         "api/translate-stream.js": {
-            "maxDuration": 90
+            "maxDuration": 120
         }
     },
     "rewrites": [

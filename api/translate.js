@@ -72,7 +72,7 @@ const cors = Cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or curl)
         if (!origin) return callback(null, true);
-        
+
         if (allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
@@ -129,7 +129,7 @@ export default async function handler(req, res) {
 
         // Select prompt based on mode (default: fast)
         const qualityMode = mode === 'quality';
-        
+
         console.log(`[Lenz API] Processing translation request (mode: ${qualityMode ? 'quality' : 'fast'})`);
         console.log('[Lenz API] Context:', context?.title || 'No context');
 
@@ -193,7 +193,7 @@ export default async function handler(req, res) {
                 // Log full structure for debugging (truncated)
                 const responseStr = JSON.stringify(response, null, 2);
                 console.log('[Lenz API] Response structure:', responseStr.substring(0, 1000));
-                
+
                 // Try to find text in the response object recursively
                 const findText = (obj, depth = 0) => {
                     if (depth > 5 || !obj) return null;
@@ -236,7 +236,7 @@ export default async function handler(req, res) {
             } catch (e) {
                 // Attempt to repair truncated JSON
                 console.log('[Lenz API] Initial parse failed, attempting repair...');
-                
+
                 if (jsonText.startsWith('[')) {
                     // Strategy 1: Find last complete object and close array
                     const lastCompleteObject = findLastCompleteObject(jsonText);
@@ -303,17 +303,33 @@ export default async function handler(req, res) {
         // Handle specific Gemini API errors
         const errorMessage = error.message || 'Translation failed';
         const statusCode = error.status || error.statusCode || 500;
-        
-        // Check for rate limit errors (429)
-        if (statusCode === 429 || errorMessage.includes('429') || errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('quota')) {
-            return res.status(429).json({
-                error: 'Rate limit exceeded',
-                code: 'RATE_LIMIT',
-                message: 'Too many requests. This demo uses Gemini API free tier with limited quota. Please wait a moment and try again.',
-                retryAfter: 60
-            });
+
+        // Check for rate limit errors (429) - distinguish RPM vs RPD
+        if (statusCode === 429 || errorMessage.includes('429') || errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('resource_exhausted')) {
+            // Check if it's a daily quota limit vs per-minute
+            const msgLower = errorMessage.toLowerCase();
+            const isDaily = msgLower.includes('per day') ||
+                msgLower.includes('daily') ||
+                msgLower.includes('requests per day') ||
+                (msgLower.includes('quota') && !msgLower.includes('per minute'));
+
+            if (isDaily) {
+                return res.status(429).json({
+                    error: 'Daily quota exhausted',
+                    code: 'RATE_LIMIT_RPD',
+                    message: 'The free tier daily limit (20 requests) has been reached. Please try again tomorrow, or self-host with your own API key for unlimited usage.',
+                    retryAfter: 86400 // 24 hours
+                });
+            } else {
+                return res.status(429).json({
+                    error: 'Rate limit exceeded',
+                    code: 'RATE_LIMIT_RPM',
+                    message: 'Too many requests per minute. Please wait about a minute before trying again.',
+                    retryAfter: 60
+                });
+            }
         }
-        
+
         // Check for service unavailable (503)
         if (statusCode === 503 || errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('unavailable')) {
             return res.status(503).json({
@@ -322,7 +338,7 @@ export default async function handler(req, res) {
                 message: 'Gemini API is temporarily unavailable or overloaded. Please try again in a few seconds.'
             });
         }
-        
+
         // Check for not found (404)
         if (statusCode === 404 || errorMessage.includes('404') || errorMessage.toLowerCase().includes('not found')) {
             return res.status(404).json({
@@ -347,27 +363,27 @@ function findLastCompleteObject(jsonText) {
     let inString = false;
     let escapeNext = false;
     let lastValidEnd = -1;
-    
+
     for (let i = 0; i < jsonText.length; i++) {
         const char = jsonText[i];
-        
+
         if (escapeNext) {
             escapeNext = false;
             continue;
         }
-        
+
         if (char === '\\' && inString) {
             escapeNext = true;
             continue;
         }
-        
+
         if (char === '"') {
             inString = !inString;
             continue;
         }
-        
+
         if (inString) continue;
-        
+
         if (char === '[' || char === '{') {
             depth++;
         } else if (char === ']' || char === '}') {
@@ -378,10 +394,10 @@ function findLastCompleteObject(jsonText) {
             }
         }
     }
-    
+
     if (lastValidEnd > 0) {
         return jsonText.substring(0, lastValidEnd + 1) + ']';
     }
-    
+
     return null;
 }

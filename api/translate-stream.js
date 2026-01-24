@@ -101,7 +101,7 @@ export default async function handler(req, res) {
         // Select prompt based on mode (default: fast)
         const qualityMode = mode === 'quality';
         const prompt = qualityMode ? buildQualityPrompt(context) : buildFastPrompt(context);
-        
+
         console.log(`[Lenz Stream] Processing translation request (mode: ${qualityMode ? 'quality' : 'fast'})`);
 
         // Set up SSE headers
@@ -168,7 +168,7 @@ export default async function handler(req, res) {
 
                 try {
                     const bubble = JSON.parse(cleanLine);
-                    
+
                     // Validate and clean bubble
                     const cleanBubble = {
                         bbox: Array.isArray(bubble.bbox) ? bubble.bbox.map(Number) : [0, 0, 10, 5],
@@ -180,10 +180,10 @@ export default async function handler(req, res) {
                     };
 
                     bubbleCount++;
-                    
+
                     // Send as SSE event
                     res.write(`data: ${JSON.stringify({ type: 'bubble', bubble: cleanBubble })}\n\n`);
-                    
+
                     console.log(`[Lenz Stream] Sent bubble ${bubbleCount}`);
                 } catch (e) {
                     // Not valid JSON yet, might be partial
@@ -217,29 +217,45 @@ export default async function handler(req, res) {
         // Send completion event
         res.write(`data: ${JSON.stringify({ type: 'done', count: bubbleCount })}\n\n`);
         console.log(`[Lenz Stream] Complete: ${bubbleCount} bubbles`);
-        
+
         res.end();
 
     } catch (error) {
         console.error('[Lenz Stream] Error:', error);
-        
+
         // Handle specific Gemini API errors
         const errorMessage = error.message || 'Translation failed';
         const statusCode = error.status || error.statusCode || 500;
-        
+
         // Build error response based on error type
         let errorResponse = { type: 'error', message: errorMessage, code: 'INTERNAL_ERROR' };
         let httpStatus = 500;
-        
-        // Check for rate limit errors (429)
-        if (statusCode === 429 || errorMessage.includes('429') || errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('quota')) {
+
+        // Check for rate limit errors (429) - distinguish RPM vs RPD
+        if (statusCode === 429 || errorMessage.includes('429') || errorMessage.toLowerCase().includes('rate limit') || errorMessage.toLowerCase().includes('quota') || errorMessage.toLowerCase().includes('resource_exhausted')) {
             httpStatus = 429;
-            errorResponse = {
-                type: 'error',
-                code: 'RATE_LIMIT',
-                message: 'Too many requests. This demo uses Gemini API free tier with limited quota. Please wait a moment and try again.',
-                retryAfter: 60
-            };
+            // Check if it's a daily quota limit vs per-minute
+            const msgLower = errorMessage.toLowerCase();
+            const isDaily = msgLower.includes('per day') ||
+                msgLower.includes('daily') ||
+                msgLower.includes('requests per day') ||
+                (msgLower.includes('quota') && !msgLower.includes('per minute'));
+
+            if (isDaily) {
+                errorResponse = {
+                    type: 'error',
+                    code: 'RATE_LIMIT_RPD',
+                    message: 'The free tier daily limit (20 requests) has been reached. Please try again tomorrow, or self-host with your own API key for unlimited usage.',
+                    retryAfter: 86400
+                };
+            } else {
+                errorResponse = {
+                    type: 'error',
+                    code: 'RATE_LIMIT_RPM',
+                    message: 'Too many requests per minute. Please wait about a minute before trying again.',
+                    retryAfter: 60
+                };
+            }
         }
         // Check for service unavailable (503)
         else if (statusCode === 503 || errorMessage.includes('503') || errorMessage.toLowerCase().includes('overloaded') || errorMessage.toLowerCase().includes('unavailable')) {
@@ -259,7 +275,7 @@ export default async function handler(req, res) {
                 message: 'The requested model or endpoint was not found. Please try again later.'
             };
         }
-        
+
         // Try to send error as SSE if headers already sent
         if (res.headersSent) {
             res.write(`data: ${JSON.stringify(errorResponse)}\n\n`);

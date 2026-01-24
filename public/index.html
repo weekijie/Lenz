@@ -804,13 +804,24 @@
             const code = errorData.code || '';
             const message = errorData.message || errorData.error || 'An error occurred';
 
-            if (statusCode === 429 || code === 'RATE_LIMIT') {
+            // Daily quota exhausted (20 requests per day)
+            if (code === 'RATE_LIMIT_RPD') {
+                showStatus('error', `
+                    <strong>&#10060; Daily Quota Exhausted</strong>
+                    <div class="error-details">
+                        ${message}
+                        <br><br>
+                        <strong>Tip:</strong> The free tier allows 20 requests per day. Try again tomorrow, or self-host with your own API key.
+                    </div>
+                `);
+                // Per-minute rate limit
+            } else if (statusCode === 429 || code === 'RATE_LIMIT_RPM' || code === 'RATE_LIMIT') {
                 showStatus('warning', `
                     <strong>&#9888; Rate Limit Exceeded</strong>
                     <div class="error-details">
                         ${message}
                         <br><br>
-                        <strong>Tip:</strong> Wait about a minute before trying again, or try with a smaller image.
+                        <strong>Tip:</strong> Wait about a minute before trying again.
                     </div>
                 `);
             } else if (statusCode === 503 || code === 'SERVICE_UNAVAILABLE') {
