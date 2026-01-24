@@ -70,8 +70,11 @@ const allowedOrigins = [
 const cors = Cors({
     methods: ['GET', 'POST', 'OPTIONS'],
     origin: (origin, callback) => {
-        // Allow requests with no origin (like mobile apps or curl)
-        if (!origin) return callback(null, true);
+        // Require origin header - only browser requests from whitelisted domains allowed
+        if (!origin) {
+            callback(new Error('Origin required'));
+            return;
+        }
 
         if (allowedOrigins.includes(origin)) {
             callback(null, true);

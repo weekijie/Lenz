@@ -85,6 +85,12 @@ export default async function handler(req, res) {
         return;
     }
 
+    // Require origin header - only browser requests from whitelisted domains allowed
+    if (!origin || !allowedOrigins.includes(origin)) {
+        res.status(403).json({ error: 'Origin not allowed' });
+        return;
+    }
+
     try {
         if (!process.env.GEMINI_API_KEY) {
             res.status(500).json({ error: 'API key not configured' });
