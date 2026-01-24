@@ -104,7 +104,7 @@ Lenz/
 │   └── background.js       # Service worker for tab capture
 │
 ├── api/                    # Vercel Serverless Functions
-│   ├── translate.js        # Standard translation endpoint
+│   ├── translate.js        # Standard translation endpoint (Backup/Fallback)
 │   └── translate-stream.js # SSE streaming endpoint
 │
 ├── public/
@@ -125,7 +125,6 @@ Lenz/
 | **Backend** | Vercel Serverless Functions, Node.js |
 | **AI** | Google Gemini 3 Flash (Multimodal) |
 | **Streaming** | Server-Sent Events (SSE) |
-| **Region** | Singapore (sin1) for low latency |
 
 ---
 
