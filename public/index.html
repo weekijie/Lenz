@@ -172,6 +172,124 @@
             opacity: 0.95;
         }
 
+        .bubble-overlay.resizing {
+            cursor: default;
+            z-index: 1000;
+            opacity: 0.95;
+            transform: none !important;
+        }
+
+        /* Content wrapper - clips text when resized small */
+        .bubble-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        /* Resize handles */
+        .resize-handle {
+            position: absolute;
+            background: #6366f1;
+            border: 2px solid #fff;
+            border-radius: 3px;
+            opacity: 0;
+            transition: opacity 0.15s ease, transform 0.15s ease;
+            z-index: 10;
+            pointer-events: auto;
+        }
+
+        .bubble-overlay:hover .resize-handle,
+        .bubble-overlay.resizing .resize-handle {
+            opacity: 1;
+        }
+
+        .resize-handle.corner {
+            width: 12px;
+            height: 12px;
+        }
+
+        .resize-handle.edge.horizontal {
+            width: 24px;
+            height: 8px;
+        }
+
+        .resize-handle.edge.vertical {
+            width: 8px;
+            height: 24px;
+        }
+
+        .resize-handle.nw {
+            top: -6px;
+            left: -6px;
+            cursor: nwse-resize;
+        }
+
+        .resize-handle.ne {
+            top: -6px;
+            right: -6px;
+            cursor: nesw-resize;
+        }
+
+        .resize-handle.sw {
+            bottom: -6px;
+            left: -6px;
+            cursor: nesw-resize;
+        }
+
+        .resize-handle.se {
+            bottom: -6px;
+            right: -6px;
+            cursor: nwse-resize;
+        }
+
+        .resize-handle.n {
+            top: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            cursor: ns-resize;
+        }
+
+        .resize-handle.s {
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            cursor: ns-resize;
+        }
+
+        .resize-handle.w {
+            left: -4px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: ew-resize;
+        }
+
+        .resize-handle.e {
+            right: -4px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: ew-resize;
+        }
+
+        .resize-handle:hover {
+            background: #8b5cf6;
+            transform: scale(1.2);
+        }
+
+        .resize-handle.n:hover,
+        .resize-handle.s:hover {
+            transform: translateX(-50%) scale(1.2);
+        }
+
+        .resize-handle.w:hover,
+        .resize-handle.e:hover {
+            transform: translateY(-50%) scale(1.2);
+        }
+
         @keyframes bubblePop {
             0% {
                 opacity: 0;
@@ -733,23 +851,30 @@
             overlay.style.width = `${width}%`;
             overlay.style.minHeight = `${height}%`;
 
-            // Add speaker label
+            // Create content wrapper (clips text overflow, keeps handles visible)
+            const contentWrapper = document.createElement('div');
+            contentWrapper.className = 'bubble-content';
+
+            // Add speaker label (inside wrapper)
             if (bubble.speaker && bubble.speaker !== 'unknown') {
                 const speaker = document.createElement('div');
                 speaker.className = 'speaker-label';
                 speaker.textContent = bubble.speaker;
-                overlay.appendChild(speaker);
+                contentWrapper.appendChild(speaker);
             }
 
-            // Add text with emotion styling
+            // Add text with emotion styling (inside wrapper)
             const text = document.createElement('div');
             text.textContent = bubble.english;
             if (bubble.emotion && bubble.emotion !== 'neutral') {
                 text.classList.add(`emotion-${bubble.emotion}`);
             }
-            overlay.appendChild(text);
+            contentWrapper.appendChild(text);
 
-            // Add cultural note indicator if present (Quality Mode)
+            // Add wrapper to overlay
+            overlay.appendChild(contentWrapper);
+
+            // Add cultural note indicator if present (outside wrapper, inside overlay)
             if (bubble.culturalNote) {
                 const noteBtn = document.createElement('div');
                 noteBtn.className = 'cultural-note-btn';
@@ -757,8 +882,8 @@
                 noteBtn.title = bubble.culturalNote;
                 noteBtn.style.cssText = `
                     position: absolute;
-                    top: -8px;
-                    right: -8px;
+                    top: 4px;
+                    right: 4px;
                     width: 18px;
                     height: 18px;
                     background: linear-gradient(135deg, #6366f1, #8b5cf6);
@@ -772,17 +897,140 @@
                     cursor: help;
                     border: 2px solid white;
                     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+                    z-index: 15;
+                    opacity: 0.85;
                 `;
+                noteBtn.addEventListener('mouseenter', () => noteBtn.style.opacity = '1');
+                noteBtn.addEventListener('mouseleave', () => noteBtn.style.opacity = '0.85');
                 noteBtn.addEventListener('click', () => {
                     alert('Cultural Note:\n\n' + bubble.culturalNote);
                 });
                 overlay.appendChild(noteBtn);
             }
 
-            // Make bubble draggable
+            // Add resize handles
+            addResizeHandles(overlay);
+
+            // Make bubble draggable (ignores resize handles)
             makeDraggable(overlay);
 
             overlayContainer.appendChild(overlay);
+        }
+
+        function addResizeHandles(overlay) {
+            const positions = [
+                { class: 'corner nw' },
+                { class: 'corner ne' },
+                { class: 'corner sw' },
+                { class: 'corner se' },
+                { class: 'edge horizontal n' },
+                { class: 'edge horizontal s' },
+                { class: 'edge vertical w' },
+                { class: 'edge vertical e' }
+            ];
+
+            positions.forEach(pos => {
+                const handle = document.createElement('div');
+                handle.className = `resize-handle ${pos.class}`;
+                handle.dataset.resizeHandle = pos.class.split(' ').pop();
+                overlay.appendChild(handle);
+            });
+
+            makeResizable(overlay);
+        }
+
+        function makeResizable(overlay) {
+            let isResizing = false;
+            let resizeDirection = '';
+            let startX, startY;
+            let startWidth, startHeight, startLeft, startTop;
+            const minWidth = 50;
+            const minHeight = 30;
+
+            overlay.addEventListener('mousedown', (e) => {
+                const handle = e.target.closest('.resize-handle');
+                if (!handle) return;
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                isResizing = true;
+                resizeDirection = handle.dataset.resizeHandle;
+                overlay.classList.add('resizing');
+
+                startX = e.clientX;
+                startY = e.clientY;
+
+                const rect = overlay.getBoundingClientRect();
+                const style = window.getComputedStyle(overlay);
+                startWidth = rect.width;
+                startHeight = rect.height;
+                startLeft = parseFloat(style.left) || 0;
+                startTop = parseFloat(style.top) || 0;
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const deltaX = e.clientX - startX;
+                const deltaY = e.clientY - startY;
+
+                let newWidth = startWidth;
+                let newHeight = startHeight;
+                let newLeft = startLeft;
+                let newTop = startTop;
+
+                switch (resizeDirection) {
+                    case 'se':
+                        newWidth = Math.max(minWidth, startWidth + deltaX);
+                        newHeight = Math.max(minHeight, startHeight + deltaY);
+                        break;
+                    case 'sw':
+                        newWidth = Math.max(minWidth, startWidth - deltaX);
+                        newHeight = Math.max(minHeight, startHeight + deltaY);
+                        if (startWidth - deltaX >= minWidth) newLeft = startLeft + deltaX;
+                        break;
+                    case 'ne':
+                        newWidth = Math.max(minWidth, startWidth + deltaX);
+                        newHeight = Math.max(minHeight, startHeight - deltaY);
+                        if (startHeight - deltaY >= minHeight) newTop = startTop + deltaY;
+                        break;
+                    case 'nw':
+                        newWidth = Math.max(minWidth, startWidth - deltaX);
+                        newHeight = Math.max(minHeight, startHeight - deltaY);
+                        if (startWidth - deltaX >= minWidth) newLeft = startLeft + deltaX;
+                        if (startHeight - deltaY >= minHeight) newTop = startTop + deltaY;
+                        break;
+                    case 'n':
+                        newHeight = Math.max(minHeight, startHeight - deltaY);
+                        if (startHeight - deltaY >= minHeight) newTop = startTop + deltaY;
+                        break;
+                    case 's':
+                        newHeight = Math.max(minHeight, startHeight + deltaY);
+                        break;
+                    case 'e':
+                        newWidth = Math.max(minWidth, startWidth + deltaX);
+                        break;
+                    case 'w':
+                        newWidth = Math.max(minWidth, startWidth - deltaX);
+                        if (startWidth - deltaX >= minWidth) newLeft = startLeft + deltaX;
+                        break;
+                }
+
+                overlay.style.width = `${newWidth}px`;
+                overlay.style.minHeight = `${newHeight}px`;
+                overlay.style.height = `${newHeight}px`;
+                overlay.style.left = `${newLeft}px`;
+                overlay.style.top = `${newTop}px`;
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    resizeDirection = '';
+                    overlay.classList.remove('resizing');
+                }
+            });
         }
 
         function makeDraggable(element) {
@@ -790,8 +1038,9 @@
             let startX, startY, initialLeft, initialTop;
 
             element.addEventListener('mousedown', (e) => {
-                // Don't drag if clicking on cultural note button
+                // Don't drag if clicking on cultural note button or resize handle
                 if (e.target.classList.contains('cultural-note-btn')) return;
+                if (e.target.closest('.resize-handle')) return;
 
                 isDragging = true;
                 element.classList.add('dragging');
