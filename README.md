@@ -37,6 +37,7 @@ The extension was built with [Comic Walker](https://comic-walker.com/) in mind -
 | **Real-Time Streaming** | Watch translations appear one-by-one as Gemini 3 identifies each bubble |
 | **Emotion Detection** | AI analyzes facial expressions & art effects to style text (shouting, whispering, etc.) |
 | **Smart Positioning** | Translations overlay directly on speech bubbles with accurate bounding boxes |
+| **Resizable & Draggable** | Adjust overlay positions and sizes with PowerPoint-style resize handles |
 | **Cultural Notes** | Explains Japanese idioms, puns, and cultural references |
 | **Context-Aware** | Uses manga title & genre to improve translation accuracy |
 
@@ -282,7 +283,14 @@ Get your API key at: https://aistudio.google.com/apikey
 
 ## Rate Limits Notice
 
-The hosted demo at [lenz-iota.vercel.app](https://lenz-iota.vercel.app) uses Gemini API's **free tier** with limited quota. You may experience rate limits during high traffic. For unlimited usage, self-host with your own API key.
+The hosted demo at [lenz-iota.vercel.app](https://lenz-iota.vercel.app) uses Gemini API's **free tier** with limited quota:
+
+| Limit | Value | What Happens |
+|-------|-------|--------------|
+| **Requests per minute (RPM)** | 5 | Wait ~1 minute and try again |
+| **Requests per day (RPD)** | 20 | Wait until midnight PT, or self-host with your own API key |
+
+The app displays specific error messages for each limit type so you know whether to wait a minute or try again tomorrow.
 
 ---
 

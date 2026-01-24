@@ -9,6 +9,7 @@ Lenz translates Japanese manga pages in real-time using Gemini 3's multimodal AI
 - **Detects emotions** from facial expressions and art effects (shouting, whispering, etc.)
 - **Explains cultural references** with contextual notes for idioms and puns
 - **Positions overlays precisely** using AI-detected bounding boxes
+- **Resizable & draggable overlays** with PowerPoint-style handles for manual adjustments
 
 ## How we built it
 We leveraged Gemini 3's vision capabilities to analyze manga images holistically. The backend streams responses via SSE, rendering bubbles progressively. The Chrome extension integrates seamlessly with Comic Walker (a free, legal manga platform).

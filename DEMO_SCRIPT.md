@@ -52,6 +52,10 @@
 
 > "Gemini 3's vision capabilities detect exact bubble positions, so translations overlay perfectly."
 
+**[Hover over a bubble to show resize handles, drag to reposition]**
+
+> "And if any overlay needs adjustment, I can drag it or resize using these handles."
+
 **[Turn to next page]**
 
 > "When I turn the page, overlays clear automatically - the extension detects content changes."
