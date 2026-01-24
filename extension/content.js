@@ -21,8 +21,7 @@
         // Listen for messages from popup/background
         chrome.runtime.onMessage.addListener(handleMessage);
 
-        // Watch for page changes (new manga page loaded)
-        observePageChanges();
+
     }
 
     // Extract manga metadata from Comic Walker page
@@ -713,63 +712,6 @@
         document.querySelectorAll('.manga-lens-note-popup').forEach(el => el.remove());
     }
 
-    // Watch for page navigation (URL changes and canvas content changes)
-    // Auto-clears overlays when user turns to a new manga page
-    function observePageChanges() {
-        console.log('[Lenz] Starting page observation...');
 
-        // URL Observer (for chapter changes)
-        let lastUrl = window.location.href;
-        const urlObserver = new MutationObserver(() => {
-            if (window.location.href !== lastUrl) {
-                lastUrl = window.location.href;
-                console.log('[Lenz] URL changed, context reset');
-                clearOverlays();
-                extractMangaContext();
-            }
-        });
-        urlObserver.observe(document.body, { childList: true, subtree: true });
-
-        // Canvas content observer (for page turns within same chapter)
-        // Detects when manga page content changes without URL change
-        let lastCanvasSignature = null;
-        let checkInterval = null;
-
-        function getCanvasSignature(canvas) {
-            if (!canvas) return null;
-            try {
-                // Sample a small portion of the canvas for fast comparison
-                // Use low quality to minimize computation
-                return canvas.toDataURL('image/jpeg', 0.1).slice(0, 200);
-            } catch (e) {
-                // Canvas may be tainted by cross-origin content
-                return null;
-            }
-        }
-
-        function checkForPageTurn() {
-            const canvas = findTargetCanvas();
-            if (!canvas) return;
-
-            const currentSignature = getCanvasSignature(canvas);
-            if (!currentSignature) return;
-
-            // If we have a previous signature and it changed, page turned
-            if (lastCanvasSignature && currentSignature !== lastCanvasSignature) {
-                console.log('[Lenz] Page turn detected, clearing overlays');
-                clearOverlays();
-            }
-
-            lastCanvasSignature = currentSignature;
-        }
-
-        // Start checking for page turns (every 500ms - lightweight)
-        checkInterval = setInterval(checkForPageTurn, 500);
-
-        // Clean up on page unload
-        window.addEventListener('beforeunload', () => {
-            if (checkInterval) clearInterval(checkInterval);
-        });
-    }
 
 })();

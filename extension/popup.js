@@ -103,6 +103,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Clear button click
+  const clearBtn = document.getElementById('clearBtn');
+  clearBtn.addEventListener('click', async () => {
+    try {
+      setStatus('loading', 'Clearing overlays...');
+
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      await chrome.tabs.sendMessage(activeTab.id, {
+        action: 'clearOverlays'
+      });
+
+      setStatus('ready', 'Overlays cleared');
+
+      // Flash button feedback
+      const originalText = clearBtn.innerHTML;
+      clearBtn.innerHTML = '<span class="btn-icon">✓</span><span class="btn-text">Cleared!</span>';
+      setTimeout(() => {
+        clearBtn.innerHTML = originalText;
+      }, 1500);
+
+    } catch (error) {
+      console.error('Failed to clear overlays', error);
+      setStatus('error', 'Failed to clear overlays');
+    }
+  });
+
   // Save settings
   saveSettings.addEventListener('click', async () => {
     await chrome.storage.local.set({

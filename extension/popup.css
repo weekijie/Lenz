@@ -211,6 +211,35 @@ body {
   }
 }
 
+/* Clear Button */
+.clear-btn {
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.clear-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.clear-btn:active {
+  transform: scale(0.98);
+}
+
 /* Mode Toggle */
 .mode-toggle {
   padding: 8px 0;
