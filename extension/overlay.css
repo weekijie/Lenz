@@ -4,11 +4,11 @@
 .manga-lens-overlay {
     position: absolute;
     z-index: 10000;
-    contain: layout style paint;
+    contain: layout style;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     padding: 6px 8px;
     border-radius: 12px;
     font-family: 'Comic Sans MS', 'Segoe UI', system-ui, sans-serif;
@@ -16,6 +16,7 @@
     box-sizing: border-box;
     cursor: grab;
     user-select: none;
+    overflow: visible;
     transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
@@ -43,6 +44,126 @@
     opacity: 0.95;
 }
 
+/* Resizing state */
+.manga-lens-overlay.resizing {
+    cursor: default;
+    z-index: 10002;
+    opacity: 0.95;
+    transform: none !important;
+    /* Override hover transform during resize */
+}
+
+/* ========== Resize Handles ========== */
+.manga-lens-resize-handle {
+    position: absolute;
+    background: #6366f1;
+    border: 2px solid #fff;
+    border-radius: 3px;
+    opacity: 0;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 10;
+    pointer-events: auto;
+}
+
+/* Show handles on overlay hover */
+.manga-lens-overlay:hover .manga-lens-resize-handle,
+.manga-lens-overlay.resizing .manga-lens-resize-handle {
+    opacity: 1;
+}
+
+/* Corner handles - 12x12px squares */
+.manga-lens-resize-handle.corner {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+/* Edge handles - thin bars */
+.manga-lens-resize-handle.edge {
+    border-radius: 2px;
+}
+
+.manga-lens-resize-handle.edge.horizontal {
+    width: 24px;
+    height: 8px;
+}
+
+.manga-lens-resize-handle.edge.vertical {
+    width: 8px;
+    height: 24px;
+}
+
+/* Corner positions */
+.manga-lens-resize-handle.nw {
+    top: -6px;
+    left: -6px;
+    cursor: nwse-resize;
+}
+
+.manga-lens-resize-handle.ne {
+    top: -6px;
+    right: -6px;
+    cursor: nesw-resize;
+}
+
+.manga-lens-resize-handle.sw {
+    bottom: -6px;
+    left: -6px;
+    cursor: nesw-resize;
+}
+
+.manga-lens-resize-handle.se {
+    bottom: -6px;
+    right: -6px;
+    cursor: nwse-resize;
+}
+
+/* Edge positions */
+.manga-lens-resize-handle.n {
+    top: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+}
+
+.manga-lens-resize-handle.s {
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    cursor: ns-resize;
+}
+
+.manga-lens-resize-handle.w {
+    left: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+}
+
+.manga-lens-resize-handle.e {
+    right: -4px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: ew-resize;
+}
+
+/* Handle hover effect */
+.manga-lens-resize-handle:hover {
+    background: #8b5cf6;
+    transform: scale(1.2);
+}
+
+/* Adjust transform for centered handles on hover */
+.manga-lens-resize-handle.n:hover,
+.manga-lens-resize-handle.s:hover {
+    transform: translateX(-50%) scale(1.2);
+}
+
+.manga-lens-resize-handle.w:hover,
+.manga-lens-resize-handle.e:hover {
+    transform: translateY(-50%) scale(1.2);
+}
+
 /* Translucent style */
 .manga-lens-translucent {
     background: rgba(255, 255, 255, 0.8);
@@ -64,6 +185,18 @@
         -1px 1px 0 #fff,
         1px 1px 0 #fff,
         0 0 8px rgba(255, 255, 255, 0.9);
+}
+
+/* Content wrapper - clips text content while handles stay visible */
+.manga-lens-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 8px;
 }
 
 /* Text styling */
@@ -130,11 +263,11 @@
     font-size: 12px;
 }
 
-/* Cultural note button */
+/* Cultural note button - positioned inside to avoid resize handle conflict */
 .manga-lens-note-btn {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: 4px;
+    right: 4px;
     width: 18px;
     height: 18px;
     border-radius: 50%;
@@ -148,11 +281,15 @@
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 6px rgba(99, 102, 241, 0.4);
-    transition: transform 0.2s ease;
+    transition: transform 0.2s ease, opacity 0.15s ease;
+    z-index: 15;
+    /* Above content wrapper, below resize handles on interaction */
+    opacity: 0.85;
 }
 
 .manga-lens-note-btn:hover {
     transform: scale(1.15);
+    opacity: 1;
 }
 
 /* Cultural note popup */

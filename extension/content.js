@@ -590,13 +590,28 @@
             overlay.classList.add(`manga-lens-emotion-${bubble.emotion}`);
         }
 
-        // Create text content
+        // Create content wrapper (clips text overflow, keeps handles visible)
+        const contentWrapper = document.createElement('div');
+        contentWrapper.className = 'manga-lens-content';
+
+        // Add speaker label if available (inside wrapper)
+        if (bubble.speaker && bubble.speaker !== 'unknown') {
+            const speakerEl = document.createElement('div');
+            speakerEl.className = 'manga-lens-speaker';
+            speakerEl.textContent = bubble.speaker;
+            contentWrapper.appendChild(speakerEl);
+        }
+
+        // Create text content (inside wrapper)
         const textEl = document.createElement('div');
         textEl.className = 'manga-lens-text';
         textEl.textContent = bubble.english;
-        overlay.appendChild(textEl);
+        contentWrapper.appendChild(textEl);
 
-        // Add cultural note button if available
+        // Add wrapper to overlay
+        overlay.appendChild(contentWrapper);
+
+        // Add cultural note button if available (outside wrapper, at overlay level)
         if (bubble.culturalNote) {
             const noteBtn = document.createElement('button');
             noteBtn.className = 'manga-lens-note-btn';
@@ -609,28 +624,160 @@
             overlay.appendChild(noteBtn);
         }
 
-        // Add speaker label if available
-        if (bubble.speaker && bubble.speaker !== 'unknown') {
-            const speakerEl = document.createElement('div');
-            speakerEl.className = 'manga-lens-speaker';
-            speakerEl.textContent = bubble.speaker;
-            overlay.insertBefore(speakerEl, textEl);
-        }
+        // Add resize handles (4 corners + 4 edges)
+        addResizeHandles(overlay);
 
-        // Make overlay draggable
+        // Make overlay draggable (handles have their own logic)
         makeDraggable(overlay);
 
         return overlay;
     }
 
-    // Make an element draggable
+    // Add resize handles to an overlay (4 corners + 4 edges)
+    function addResizeHandles(overlay) {
+        const handlePositions = [
+            // Corners
+            { class: 'corner nw', cursor: 'nwse-resize' },
+            { class: 'corner ne', cursor: 'nesw-resize' },
+            { class: 'corner sw', cursor: 'nesw-resize' },
+            { class: 'corner se', cursor: 'nwse-resize' },
+            // Edges
+            { class: 'edge horizontal n', cursor: 'ns-resize' },
+            { class: 'edge horizontal s', cursor: 'ns-resize' },
+            { class: 'edge vertical w', cursor: 'ew-resize' },
+            { class: 'edge vertical e', cursor: 'ew-resize' }
+        ];
+
+        handlePositions.forEach(pos => {
+            const handle = document.createElement('div');
+            handle.className = `manga-lens-resize-handle ${pos.class}`;
+            handle.dataset.resizeHandle = pos.class.split(' ').pop(); // Get direction: nw, ne, sw, se, n, s, w, e
+            overlay.appendChild(handle);
+        });
+
+        // Make the overlay resizable
+        makeResizable(overlay);
+    }
+
+    // Make an overlay resizable via its handles
+    function makeResizable(overlay) {
+        let isResizing = false;
+        let resizeDirection = '';
+        let startX, startY;
+        let startWidth, startHeight, startLeft, startTop;
+        const minWidth = 50;  // Minimum width in pixels
+        const minHeight = 30; // Minimum height in pixels
+
+        // Handle mousedown on resize handles
+        overlay.addEventListener('mousedown', (e) => {
+            const handle = e.target.closest('.manga-lens-resize-handle');
+            if (!handle) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            isResizing = true;
+            resizeDirection = handle.dataset.resizeHandle;
+            overlay.classList.add('resizing');
+
+            startX = e.clientX;
+            startY = e.clientY;
+
+            const rect = overlay.getBoundingClientRect();
+            const style = window.getComputedStyle(overlay);
+            startWidth = rect.width;
+            startHeight = rect.height;
+            startLeft = parseFloat(style.left) || 0;
+            startTop = parseFloat(style.top) || 0;
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+
+            let newWidth = startWidth;
+            let newHeight = startHeight;
+            let newLeft = startLeft;
+            let newTop = startTop;
+
+            // Calculate new dimensions based on resize direction
+            switch (resizeDirection) {
+                case 'se': // Southeast corner
+                    newWidth = Math.max(minWidth, startWidth + deltaX);
+                    newHeight = Math.max(minHeight, startHeight + deltaY);
+                    break;
+                case 'sw': // Southwest corner
+                    newWidth = Math.max(minWidth, startWidth - deltaX);
+                    newHeight = Math.max(minHeight, startHeight + deltaY);
+                    if (startWidth - deltaX >= minWidth) {
+                        newLeft = startLeft + deltaX;
+                    }
+                    break;
+                case 'ne': // Northeast corner
+                    newWidth = Math.max(minWidth, startWidth + deltaX);
+                    newHeight = Math.max(minHeight, startHeight - deltaY);
+                    if (startHeight - deltaY >= minHeight) {
+                        newTop = startTop + deltaY;
+                    }
+                    break;
+                case 'nw': // Northwest corner
+                    newWidth = Math.max(minWidth, startWidth - deltaX);
+                    newHeight = Math.max(minHeight, startHeight - deltaY);
+                    if (startWidth - deltaX >= minWidth) {
+                        newLeft = startLeft + deltaX;
+                    }
+                    if (startHeight - deltaY >= minHeight) {
+                        newTop = startTop + deltaY;
+                    }
+                    break;
+                case 'n': // North edge
+                    newHeight = Math.max(minHeight, startHeight - deltaY);
+                    if (startHeight - deltaY >= minHeight) {
+                        newTop = startTop + deltaY;
+                    }
+                    break;
+                case 's': // South edge
+                    newHeight = Math.max(minHeight, startHeight + deltaY);
+                    break;
+                case 'e': // East edge
+                    newWidth = Math.max(minWidth, startWidth + deltaX);
+                    break;
+                case 'w': // West edge
+                    newWidth = Math.max(minWidth, startWidth - deltaX);
+                    if (startWidth - deltaX >= minWidth) {
+                        newLeft = startLeft + deltaX;
+                    }
+                    break;
+            }
+
+            // Apply new dimensions
+            overlay.style.width = `${newWidth}px`;
+            overlay.style.minHeight = `${newHeight}px`;
+            overlay.style.height = `${newHeight}px`;
+            overlay.style.left = `${newLeft}px`;
+            overlay.style.top = `${newTop}px`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                resizeDirection = '';
+                overlay.classList.remove('resizing');
+            }
+        });
+    }
+
+    // Make an element draggable (ignores resize handles)
     function makeDraggable(element) {
         let isDragging = false;
         let startX, startY, initialLeft, initialTop;
 
         element.addEventListener('mousedown', (e) => {
-            // Don't drag if clicking on a button (like cultural note)
+            // Don't drag if clicking on a button or resize handle
             if (e.target.tagName === 'BUTTON') return;
+            if (e.target.closest('.manga-lens-resize-handle')) return;
 
             isDragging = true;
             element.classList.add('dragging');
