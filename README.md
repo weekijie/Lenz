@@ -69,68 +69,7 @@ Gemini 3's vision capabilities analyze **both** the image and context simultaneo
 
 ## Architecture
 
-```
-                                       LENZ ARCHITECTURE
-    
-    ┌─────────────────────────────────────────────────────────────────────────────┐
-    │                              CLIENT SIDE                                     │
-    │                                                                              │
-    │   ┌──────────────────────┐              ┌──────────────────────────────┐    │
-    │   │     Web Demo         │              │     Chrome Extension          │    │
-    │   │   (index.html)       │              │                               │    │
-    │   │                      │              │  ┌─────────┐  ┌────────────┐  │    │
-    │   │  - Drag & drop       │              │  │ popup   │  │ content.js │  │    │
-    │   │  - Image upload      │              │  │ UI      │  │ (overlay)  │  │    │
-    │   │  - Live preview      │              │  └─────────┘  └────────────┘  │    │
-    │   └──────────┬───────────┘              └──────────────┬───────────────┘    │
-    │              │                                         │                     │
-    └──────────────┼─────────────────────────────────────────┼─────────────────────┘
-                   │                                         │
-                   │  POST /api/translate-stream             │
-                   │  {image: base64, context: {...}}        │
-                   ▼                                         ▼
-    ┌─────────────────────────────────────────────────────────────────────────────┐
-    │                           SERVER SIDE (Vercel)                               │
-    │                                                                              │
-    │   ┌─────────────────────────────────────────────────────────────────────┐   │
-    │   │                    Serverless Functions                              │   │
-    │   │                                                                      │   │
-    │   │   translate-stream.js              translate.js                      │   │
-    │   │   ┌─────────────────┐              ┌─────────────────┐               │   │
-    │   │   │ SSE Streaming   │              │ Standard JSON   │               │   │
-    │   │   │ Response        │              │ Response        │               │   │
-    │   │   └────────┬────────┘              └────────┬────────┘               │   │
-    │   │            │                                │                        │   │
-    │   └────────────┼────────────────────────────────┼────────────────────────┘   │
-    │                │                                │                            │
-    │                └───────────────┬────────────────┘                            │
-    │                                │                                             │
-    │                    process.env.GEMINI_API_KEY                                │
-    │                                │                                             │
-    └────────────────────────────────┼─────────────────────────────────────────────┘
-                                     │
-                                     ▼
-    ┌─────────────────────────────────────────────────────────────────────────────┐
-    │                         GOOGLE GEMINI 3 API                                  │
-    │                                                                              │
-    │   Model: gemini-3-flash-preview                                              │
-    │                                                                              │
-    │   ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐         │
-    │   │  Vision Input   │ +  │  Text Prompt    │ =  │ Structured JSON │         │
-    │   │  (manga image)  │    │  (translation   │    │ (bubbles array) │         │
-    │   │                 │    │   instructions) │    │                 │         │
-    │   └─────────────────┘    └─────────────────┘    └─────────────────┘         │
-    │                                                                              │
-    └─────────────────────────────────────────────────────────────────────────────┘
-
-    Data Flow:
-    ──────────
-    1. User uploads image or extension captures manga page
-    2. Image sent to Vercel backend as base64
-    3. Backend calls Gemini 3 with image + prompt
-    4. Gemini 3 returns streaming JSON (bubble by bubble)
-    5. Frontend renders overlays progressively as bubbles arrive
-```
+<img width="1024" height="1536" alt="LenzDiagram" src="https://github.com/user-attachments/assets/1a156ba9-8b83-487f-a00e-060c290b9774" />
 
 ### Streaming Flow
 
